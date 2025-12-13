@@ -1334,12 +1334,19 @@ function renderDashboard() {
       });
       seriesBySku.set(sku, series);
     });
+    function resolveProductName(code) {
+      const key = String(code || "").trim().toLowerCase();
+      const match = state.skuHsn.find(r => String(r.productKey || "").toLowerCase() === key);
+      const name = match ? (match["ProductName"] || match["DescriptionofProduct"] || "") : "";
+      return name;
+    }
     topSkusEl.innerHTML = "";
+    topSkusEl.classList.add("sku-grid");
     sorted.forEach(([sku]) => {
       const series = seriesBySku.get(sku) || [];
       const maxY = Math.max(1, ...series);
-      const w = 320;
-      const h = 80;
+      const w = 280;
+      const h = 64;
       const stepX = w / (series.length - 1 || 1);
       let d = "";
       series.forEach((y, i) => {
@@ -1347,11 +1354,14 @@ function renderDashboard() {
         const py = Math.round(h - (y / maxY) * h);
         d += (i === 0 ? "M " : " L ") + x + " " + py;
       });
-      const row = document.createElement("div");
-      row.className = "sku-row";
-      const lab = document.createElement("div");
-      lab.className = "sku-label";
-      lab.textContent = sku;
+      const card = document.createElement("div");
+      card.className = "sku-card";
+      const title = document.createElement("div");
+      title.className = "sku-title";
+      title.textContent = sku;
+      const name = document.createElement("div");
+      name.className = "sku-name";
+      name.textContent = resolveProductName(sku) || "";
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("class", "sparkline");
       svg.setAttribute("viewBox", "0 0 " + w + " " + h);
@@ -1362,9 +1372,10 @@ function renderDashboard() {
       path.setAttribute("stroke", getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim() || "#38bdf8");
       path.setAttribute("stroke-width", "2");
       svg.appendChild(path);
-      row.appendChild(lab);
-      row.appendChild(svg);
-      topSkusEl.appendChild(row);
+      card.appendChild(title);
+      card.appendChild(name);
+      card.appendChild(svg);
+      topSkusEl.appendChild(card);
     });
   }
   function monthKey(d) {
@@ -1410,41 +1421,45 @@ function renderDashboard() {
       if (String(o.orderStatus).toLowerCase() === "shipped") shippedSeries[idx] += 1;
       else if (String(o.orderStatus).toLowerCase() === "pending") pendingSeries[idx] += 1;
     });
-    const w = 600;
-    const h = 120;
-    function pathFor(series, color) {
-      const maxY = Math.max(1, ...series);
-      const stepX = w / (series.length - 1 || 1);
+    monthlyEl.innerHTML = "";
+    const w = 800;
+    const h = 140;
+    const maxY = Math.max(1, ...shippedSeries, ...pendingSeries);
+    const stepX = w / (months.length - 1 || 1);
+    function seriesPath(series) {
       let d = "";
       series.forEach((y, i) => {
         const x = Math.round(i * stepX);
         const py = Math.round(h - (y / maxY) * h);
         d += (i === 0 ? "M " : " L ") + x + " " + py;
       });
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("class", "sparkline");
-      svg.setAttribute("viewBox", "0 0 " + w + " " + h);
-      svg.setAttribute("preserveAspectRatio","none");
-      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      p.setAttribute("d", d.trim());
-      p.setAttribute("fill", "none");
-      p.setAttribute("stroke", color);
-      p.setAttribute("stroke-width", "2");
-      svg.appendChild(p);
-      return svg;
+      return d.trim();
     }
-    monthlyEl.innerHTML = "";
-    const shippedSvg = pathFor(shippedSeries, getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim() || "#38bdf8");
-    const pendingSvg = pathFor(pendingSeries, getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#22c55e");
-    monthlyEl.appendChild(shippedSvg);
-    monthlyEl.appendChild(pendingSvg);
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "sparkline");
+    svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+    svg.setAttribute("preserveAspectRatio","none");
+    const shippedPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    shippedPath.setAttribute("d", seriesPath(shippedSeries));
+    shippedPath.setAttribute("fill", "none");
+    shippedPath.setAttribute("stroke", getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim() || "#38bdf8");
+    shippedPath.setAttribute("stroke-width", "2");
+    const pendingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    pendingPath.setAttribute("d", seriesPath(pendingSeries));
+    pendingPath.setAttribute("fill", "none");
+    pendingPath.setAttribute("stroke", getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#22c55e");
+    pendingPath.setAttribute("stroke-width", "2");
+    svg.appendChild(shippedPath);
+    svg.appendChild(pendingPath);
+    monthlyEl.appendChild(svg);
     const labels = document.createElement("div");
     labels.className = "axis-labels";
+    labels.style.gridTemplateColumns = "repeat(" + months.length + ", 1fr)";
     const maxLabels = Math.min(12, months.length);
     const step = Math.max(1, Math.floor(months.length / maxLabels));
-    for (let i = 0; i < months.length; i += step) {
+    for (let i = 0; i < months.length; i++) {
       const span = document.createElement("div");
-      span.textContent = monthLabel(months[i]);
+      span.textContent = (i % step === 0) ? monthLabel(months[i]) : "";
       labels.appendChild(span);
     }
     monthlyEl.appendChild(labels);
