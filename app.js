@@ -16,6 +16,8 @@ const state = {
   modalContext: null
 };
 
+const REMOTE_API_BASE = location.protocol + "//" + location.hostname + ":8002";
+
 const ORDERS_COLS = [
   { key: "vendorCode", label: "VendorCode" },
   { key: "uniqueId", label: "UniqueId" },
@@ -156,6 +158,20 @@ async function dbGetMeta(key) {
 }
 
 async function initDBAndLoad() {
+  let loaded = false;
+  try {
+    const resp = await fetch(REMOTE_API_BASE + "/api/state", { method: "GET" });
+    if (resp.ok) {
+      const data = await resp.json();
+      state.orders = Array.isArray(data.orders) ? data.orders : [];
+      state.skuHsn = Array.isArray(data.skuHsn) ? data.skuHsn : [];
+      state.hsnPercent = Array.isArray(data.hsnPercent) ? data.hsnPercent : [];
+      state.companyGstinDefault = data.companyGstinDefault || state.companyGstinDefault;
+      state.lastInvoiceSeq = parseInt(data.lastInvoiceSeq || 0, 10) || 0;
+      loaded = true;
+    }
+  } catch {}
+  if (loaded) return;
   try {
     state.db = await dbOpen();
     const [orders, skuHsn, hsnPercent] = await Promise.all([
@@ -200,6 +216,20 @@ async function saveState() {
     localStorage.setItem("companyGstinDefault", state.companyGstinDefault);
     localStorage.setItem("lastInvoiceSeq", String(state.lastInvoiceSeq));
   }
+  try {
+    const payload = {
+      orders: state.orders,
+      skuHsn: state.skuHsn,
+      hsnPercent: state.hsnPercent,
+      companyGstinDefault: state.companyGstinDefault,
+      lastInvoiceSeq: state.lastInvoiceSeq
+    };
+    await fetch(REMOTE_API_BASE + "/api/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch {}
 }
 
 function $(sel) { return document.querySelector(sel); }
