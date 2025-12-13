@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BI WORLD ORDER PROCESSING</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <header class="app-header">BI WORLD ORDER PROCESSING</header>
+    <div class="layout">
+      <aside class="sidebar">
+        <nav>
+          <ul>
+            <li><button class="nav-btn" data-view="dashboard">DashBoard</button></li>
+            <li><button class="nav-btn" data-view="orders">Orders</button></li>
+            <li><button class="nav-btn" data-view="add-orders">Add Orders</button></li>
+            <li><button class="nav-btn" data-view="update-orders">Update Orders</button></li>
+            <li><button class="nav-btn" data-view="sku-hsn">Sku-Hsn</button></li>
+            <li><button class="nav-btn" data-view="hsn-percent">Hsn-Percent</button></li>
+          </ul>
+        </nav>
+      </aside>
+      <main class="content">
+        <section id="view-dashboard" class="view hidden">
+          <div class="view-header">
+            <h2>Dashboard</h2>
+          </div>
+          <div class="dash-controls">
+            <div class="date-range">
+              <label for="dash-start-date">Start Date</label>
+              <input type="date" id="dash-start-date" class="date-input" />
+              <label for="dash-end-date">End Date</label>
+              <input type="date" id="dash-end-date" class="date-input" />
+              <button id="dash-apply">OK</button>
+              <button id="dash-reset" class="icon-btn">Set All</button>
+            </div>
+          </div>
+          <div class="dash-cards">
+            <div class="tile stat-card">
+              <h3>Total Orders</h3>
+              <div id="dash-total">0</div>
+            </div>
+            <div class="tile stat-card">
+              <h3>Shipped Orders</h3>
+              <div id="dash-shipped">0</div>
+            </div>
+            <div class="tile stat-card">
+              <h3>Pending Orders</h3>
+              <div id="dash-pending">0</div>
+            </div>
+          </div>
+          <div class="tiles">
+            <div class="tile">
+              <h3>Top 10 ProductCodes</h3>
+              <div id="dash-top-skus"></div>
+            </div>
+          </div>
+          <div class="tiles">
+            <div class="tile">
+              <h3>Monthly Orders (Shipped vs Pending)</h3>
+              <div id="dash-monthly-orders"></div>
+            </div>
+          </div>
+        </section>
+        <section id="view-orders" class="view">
+          <div class="view-header">
+            <h2>Orders</h2>
+            <div class="actions">
+              <input type="text" id="orders-search" placeholder="Search orders..." />
+              <button id="clear-search" class="icon-btn">Clear</button>
+              <label><input type="checkbox" id="toggle-select-all" /> Select all</label>
+              <button id="clear-selection">Clear selection</button>
+              <button id="delete-selected" class="danger-btn">Delete selected</button>
+              <button id="export-csv" class="icon-btn">Export as CSV</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="orders-table">
+              <thead id="orders-thead"></thead>
+              <tbody id="orders-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="view-add-orders" class="view hidden">
+          <div class="view-header">
+            <h2>Add Orders</h2>
+          </div>
+          <div class="tiles">
+            <div class="tile">
+              <h3>Import Orders</h3>
+              <p>Upload a CSV or Excel file to import orders.</p>
+              <input type="file" id="orders-file-input" accept=".csv, .xls, .xlsx" />
+              <button id="btn-start-import" disabled>Start Import</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-update-orders" class="view hidden">
+          <div class="view-header">
+            <h2>Update Orders</h2>
+          </div>
+          <p>Shows only orders with status Pending. Select an order and click Update.</p>
+          <div class="table-wrap">
+            <table id="pending-orders-table">
+              <thead id="pending-orders-thead"></thead>
+              <tbody id="pending-orders-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="view-sku-hsn" class="view hidden">
+          <div class="view-header">
+            <h2>Sku-Hsn</h2>
+          </div>
+          <div class="tiles centered">
+            <div class="tile wide">
+              <h3>Import Sku-Hsn</h3>
+              <p>Upload a CSV or Excel file with Sku and HSN data.</p>
+              <input type="file" id="sku-hsn-file-input" accept=".csv, .xls, .xlsx" />
+              <button id="btn-import-sku-hsn" disabled>Import Sku-Hsn</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="sku-hsn-table">
+              <thead id="sku-hsn-thead"></thead>
+              <tbody id="sku-hsn-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="view-hsn-percent" class="view hidden">
+          <div class="view-header">
+            <h2>HSN Percent</h2>
+          </div>
+          <div class="tiles centered">
+            <div class="tile wide">
+              <h3>Import HSN Percent</h3>
+              <p>Upload a CSV or Excel file with HSN and its tax percent.</p>
+              <input type="file" id="hsn-percent-file-input" accept=".csv, .xls, .xlsx" />
+              <button id="btn-import-hsn-percent" disabled>Import HSN Percent</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="hsn-percent-table">
+              <thead id="hsn-percent-thead"></thead>
+              <tbody id="hsn-percent-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="spinner"></div>
+    </div>
+
+    <div id="modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title"></h3>
+          <button id="modal-close" class="icon-btn">✖</button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+        <div class="modal-footer">
+          <button id="modal-prev" class="hidden">Previous</button>
+          <button id="modal-next" class="hidden">Next</button>
+          <button id="modal-confirm" class="hidden">Add Order</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+  </html>
