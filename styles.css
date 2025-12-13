@@ -60,6 +60,8 @@ body {
 .content {
   padding: 16px;
   overflow: auto;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .loading-overlay {
   position: fixed;
@@ -297,7 +299,7 @@ tbody td {
 }
 .dash-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
 }
 .dash-controls .date-range {
@@ -344,6 +346,8 @@ tbody td {
 .sku-row:last-child { border-bottom: none; }
 .sku-label { color: var(--text); font-weight: 600; }
 .sparkline { width: 100%; height: 80px; }
+.tile.stat-card { min-height: 110px; display: grid; align-content: center; }
+.tiles .tile.wide { width: 100%; }
 .axis-labels {
   display: grid;
   grid-template-columns: repeat(12, 1fr);

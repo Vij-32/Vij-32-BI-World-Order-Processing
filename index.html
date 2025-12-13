@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>BI WORLD ORDER PROCESSING</title>
     <link rel="stylesheet" href="./styles.css" />
+    <script src="./env.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.47.10/dist/umd/supabase.min.js"></script>
   </head>
   <body>
     <header class="app-header">BI WORLD ORDER PROCESSING</header>
@@ -103,6 +105,17 @@
               <h3>Upload Signature</h3>
               <input type="file" id="asset-sign-input" accept="image/png, image/jpeg" />
               <img id="asset-sign-preview" alt="Signature preview" style="max-width:200px; display:block; margin-top:8px;" />
+            </div>
+            <div class="tile">
+              <h3>Supabase Settings</h3>
+              <label for="supabase-url">Supabase URL</label>
+              <input type="text" id="supabase-url" placeholder="https://xyz.supabase.co" />
+              <label for="supabase-key">Anon Key</label>
+              <input type="text" id="supabase-key" placeholder="Public anon key" />
+              <div style="margin-top:8px;">
+                <button id="btn-test-supabase" class="icon-btn">Test Connection</button>
+                <span id="supabase-status" style="margin-left:8px; color: var(--muted);"></span>
+              </div>
             </div>
           </div>
           <div>

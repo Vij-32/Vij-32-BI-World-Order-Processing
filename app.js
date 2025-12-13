@@ -4,6 +4,8 @@ const state = {
   hsnPercent: [],
   companyGstinDefault: "33ABNCS8962N1ZE",
   assets: { logo: "", sign: "" },
+  supabaseCfg: { url: "", anonKey: "" },
+  supabaseClient: null,
   view: "orders",
   importPreview: null,
   importMapping: {},
@@ -21,6 +23,17 @@ const REMOTE_API_BASE = (location.port === "8002")
   ? location.origin
   : (location.protocol + "//" + location.hostname + ":8002");
 
+function applyEnvCfg() {
+  try {
+    const env = window.__ENV__ || {};
+    const url = String(env.SUPABASE_URL || "").trim();
+    const key = String(env.SUPABASE_ANON_KEY || "").trim();
+    if (url && key) {
+      state.supabaseCfg.url = url;
+      state.supabaseCfg.anonKey = key;
+    }
+  } catch {}
+}
 const ORDERS_COLS = [
   { key: "vendorCode", label: "VendorCode" },
   { key: "uniqueId", label: "UniqueId" },
@@ -172,6 +185,7 @@ async function initDBAndLoad() {
       state.companyGstinDefault = data.companyGstinDefault || state.companyGstinDefault;
       state.lastInvoiceSeq = parseInt(data.lastInvoiceSeq || 0, 10) || 0;
       state.assets = data.assets || state.assets;
+      if (data.supabaseCfg) state.supabaseCfg = data.supabaseCfg;
       loaded = true;
     }
   } catch {}
@@ -194,6 +208,10 @@ async function initDBAndLoad() {
     const signMeta = await dbGetMeta("assetsSign");
     state.assets.logo = logoMeta || state.assets.logo || "";
     state.assets.sign = signMeta || state.assets.sign || "";
+    const sbUrl = await dbGetMeta("supabaseUrl");
+    const sbKey = await dbGetMeta("supabaseAnonKey");
+    state.supabaseCfg.url = sbUrl || state.supabaseCfg.url || "";
+    state.supabaseCfg.anonKey = sbKey || state.supabaseCfg.anonKey || "";
   } catch {
     const orders = localStorage.getItem("ordersData");
     const skuHsn = localStorage.getItem("skuHsnData");
@@ -202,6 +220,8 @@ async function initDBAndLoad() {
     const inv = localStorage.getItem("lastInvoiceSeq");
     const assetsLogo = localStorage.getItem("assetsLogo");
     const assetsSign = localStorage.getItem("assetsSign");
+    const sbUrl = localStorage.getItem("supabaseUrl");
+    const sbKey = localStorage.getItem("supabaseAnonKey");
     state.orders = orders ? JSON.parse(orders) : [];
     state.skuHsn = skuHsn ? JSON.parse(skuHsn) : [];
     state.hsnPercent = hsnPercent ? JSON.parse(hsnPercent) : [];
@@ -209,6 +229,15 @@ async function initDBAndLoad() {
     state.lastInvoiceSeq = inv ? parseInt(inv, 10) || 0 : 0;
     state.assets.logo = assetsLogo || state.assets.logo || "";
     state.assets.sign = assetsSign || state.assets.sign || "";
+    state.supabaseCfg.url = sbUrl || state.supabaseCfg.url || "";
+    state.supabaseCfg.anonKey = sbKey || state.supabaseCfg.anonKey || "";
+  }
+  if (state.supabaseCfg.url && state.supabaseCfg.anonKey && window.supabase) {
+    state.supabaseClient = window.supabase.createClient(state.supabaseCfg.url, state.supabaseCfg.anonKey);
+    try {
+      const loadedSb = await supabaseLoadAll();
+      if (loadedSb) return;
+    } catch {}
   }
 }
 
@@ -231,6 +260,8 @@ async function saveState() {
     localStorage.setItem("lastInvoiceSeq", String(state.lastInvoiceSeq));
     localStorage.setItem("assetsLogo", state.assets.logo || "");
     localStorage.setItem("assetsSign", state.assets.sign || "");
+    localStorage.setItem("supabaseUrl", state.supabaseCfg.url || "");
+    localStorage.setItem("supabaseAnonKey", state.supabaseCfg.anonKey || "");
   }
   try {
     const payload = {
@@ -239,7 +270,8 @@ async function saveState() {
       hsnPercent: state.hsnPercent,
       companyGstinDefault: state.companyGstinDefault,
       lastInvoiceSeq: state.lastInvoiceSeq,
-      assets: state.assets
+      assets: state.assets,
+      supabaseCfg: state.supabaseCfg
     };
     await fetch(REMOTE_API_BASE + "/api/state", {
       method: "POST",
@@ -247,6 +279,9 @@ async function saveState() {
       body: JSON.stringify(payload)
     });
   } catch {}
+  if (state.supabaseClient) {
+    try { await supabaseSaveAll(); } catch {}
+  }
 }
 
 function renderAssets() {
@@ -255,6 +290,9 @@ function renderAssets() {
   const logoPrev = document.getElementById("asset-logo-preview");
   const signPrev = document.getElementById("asset-sign-preview");
   const saveBtn = document.getElementById("btn-save-assets");
+  const sbUrlInp = document.getElementById("supabase-url");
+  const sbKeyInp = document.getElementById("supabase-key");
+  const sbStatus = document.getElementById("supabase-status");
   if (logoPrev) {
     logoPrev.src = state.assets.logo || "";
     logoPrev.style.display = state.assets.logo ? "block" : "none";
@@ -263,6 +301,8 @@ function renderAssets() {
     signPrev.src = state.assets.sign || "";
     signPrev.style.display = state.assets.sign ? "block" : "none";
   }
+  if (sbUrlInp) sbUrlInp.value = state.supabaseCfg.url || "";
+  if (sbKeyInp) sbKeyInp.value = state.supabaseCfg.anonKey || "";
   function readFileToDataUrl(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -291,10 +331,77 @@ function renderAssets() {
   }
   if (saveBtn) {
     saveBtn.onclick = async () => {
+      if (sbUrlInp && sbKeyInp) {
+        state.supabaseCfg.url = sbUrlInp.value.trim();
+        state.supabaseCfg.anonKey = sbKeyInp.value.trim();
+        if (state.supabaseCfg.url && state.supabaseCfg.anonKey && window.supabase) {
+          state.supabaseClient = window.supabase.createClient(state.supabaseCfg.url, state.supabaseCfg.anonKey);
+        } else {
+          state.supabaseClient = null;
+        }
+      }
       await saveState();
       alert("Assets saved");
     };
   }
+  const testBtn = document.getElementById("btn-test-supabase");
+  if (testBtn) {
+    testBtn.onclick = async () => {
+      const url = (sbUrlInp && sbUrlInp.value.trim()) || state.supabaseCfg.url;
+      const key = (sbKeyInp && sbKeyInp.value.trim()) || state.supabaseCfg.anonKey;
+      if (!url || !key || !window.supabase) {
+        if (sbStatus) sbStatus.textContent = "Missing URL or Key";
+        return;
+      }
+      const client = window.supabase.createClient(url, key);
+      const { data, error } = await client.from("meta").select("key").limit(1);
+      if (sbStatus) sbStatus.textContent = error ? "Connection failed" : "Connected";
+    };
+  }
+}
+
+async function supabaseLoadAll() {
+  const c = state.supabaseClient;
+  if (!c) return false;
+  try {
+    const m = await c.from("meta").select("key,value");
+    if (m.error) throw m.error;
+    const mp = {};
+    (m.data || []).forEach(r => { mp[r.key] = r.value; });
+    state.companyGstinDefault = mp["companyGstinDefault"] || state.companyGstinDefault;
+    state.lastInvoiceSeq = mp["lastInvoiceSeq"] ? parseInt(mp["lastInvoiceSeq"],10) || 0 : state.lastInvoiceSeq;
+    state.assets.logo = mp["assetsLogo"] || state.assets.logo || "";
+    state.assets.sign = mp["assetsSign"] || state.assets.sign || "";
+    const o = await c.from("orders").select("data");
+    if (o.error) throw o.error;
+    state.orders = (o.data || []).map(r => r.data || {});
+    const s = await c.from("sku_hsn").select("data");
+    if (s.error) throw s.error;
+    state.skuHsn = (s.data || []).map(r => r.data || {});
+    const h = await c.from("hsn_percent").select("*");
+    if (h.error) throw h.error;
+    state.hsnPercent = h.data || [];
+    return true;
+  } catch { return false; }
+}
+
+async function supabaseSaveAll() {
+  const c = state.supabaseClient;
+  if (!c) return false;
+  const metaRows = [
+    { key: "companyGstinDefault", value: state.companyGstinDefault || "" },
+    { key: "lastInvoiceSeq", value: String(state.lastInvoiceSeq || 0) },
+    { key: "assetsLogo", value: state.assets.logo || "" },
+    { key: "assetsSign", value: state.assets.sign || "" }
+  ];
+  await c.from("meta").upsert(metaRows, { onConflict: "key" });
+  const ordersRows = state.orders.map(r => ({ data: r, dedupe_key: r.dedupeKey || null }));
+  await c.from("orders").upsert(ordersRows, { onConflict: "dedupe_key" });
+  const skuRows = state.skuHsn.map(r => ({ data: r, product_key: String(r.productKey || "").trim().toLowerCase() }));
+  await c.from("sku_hsn").upsert(skuRows, { onConflict: "product_key" });
+  const hsnRows = state.hsnPercent.map(r => ({ hsn_code: String(r["HSN CODE"] || r.hsnCode || "").trim(), percent_value: r["PERCENT VALUE"] || r.percent_value || null }));
+  await c.from("hsn_percent").upsert(hsnRows, { onConflict: "hsn_code" });
+  return true;
 }
 
 function $(sel) { return document.querySelector(sel); }
@@ -1058,6 +1165,7 @@ function fiscalYearString() {
 }
 
 async function onReady() {
+  applyEnvCfg();
   await initDBAndLoad();
   hideModal();
   document.querySelectorAll(".nav-btn").forEach(b => {
