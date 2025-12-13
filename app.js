@@ -678,6 +678,202 @@ function updateUpdateSelectedButton() {
   $("#btn-update-selected").disabled = !anyOrdersSelected;
 }
 
+function updatePrintButtons() {
+  const anyOrdersSelected = state.orders.some(r => r.__selected);
+  const btnLabel = document.getElementById("btn-print-label");
+  const btnInvoice = document.getElementById("btn-print-invoice");
+  const btnBoth = document.getElementById("btn-print-both");
+  if (btnLabel) btnLabel.disabled = !anyOrdersSelected;
+  if (btnInvoice) btnInvoice.disabled = !anyOrdersSelected;
+  if (btnBoth) btnBoth.disabled = !anyOrdersSelected;
+}
+
+function buildLabelHTML(order) {
+  const po = String(order.purchaseOrder || "").trim();
+  const poDate = String(order.poDate || "").trim();
+  const shipLines = [
+    order.shipToName, order.shipToAddress1, order.shipToAddress2,
+    order.shipToAddress3, order.shipToAddress4,
+    [order.city, order.state, order.postal].filter(Boolean).join(", "),
+    order.country ? String(order.country) : "",
+    order.phone ? "Phone: " + normalizePhone(order.phone) : "",
+    order.email ? "Email: " + order.email : ""
+  ].filter(s => String(s || "").trim() !== "").join("<br>");
+  const desc = String(order.productDescription || "").trim();
+  const code = String(order.productCode || "").trim();
+  const hsn = String(order.hsnCode || "").trim();
+  const qty = String(order.totalQuantity || order.quantity || "").trim();
+  const gstin = String(state.companyGstinDefault || "").trim();
+  const seller = [
+    "Spillbox Innovation Private Limited",
+    "2/852, Manapakkam-Mugalivakkam Main Road,",
+    "Chennai, Tamil Nadu 600125",
+    "Phone: 89392 97454",
+    "GSTIN: " + gstin
+  ].join("<br>");
+  return `
+  <div class="page">
+    <div class="outer">
+      <div class="top-header">
+        <h2>Shipping Label</h2>
+      </div>
+      <div class="barcode">*${po}*</div>
+      <div class="section">
+        <div class="bold">Ship To:</div>
+        ${shipLines}
+      </div>
+      <div class="section">
+        <div class="info-line">Order Number: ${po}</div>
+        <div class="info-line">PO Date: ${poDate}</div>
+      </div>
+      <div class="section">
+        <div class="bold">From:</div>
+        ${seller}
+      </div>
+      <div class="section">
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th><th>Product Code</th><th>HSN</th><th>Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${desc}</td><td>${code}</td><td>${hsn}</td><td>${qty}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildInvoiceHTML(order) {
+  const po = String(order.purchaseOrder || "").trim();
+  const poDate = String(order.poDate || "").trim();
+  const invoiceNo = String(order.invoiceNumber || "").trim();
+  const invoiceDate = String(order.invoiceDate || "").trim();
+  const shipLines = [
+    order.shipToName, order.shipToAddress1, order.shipToAddress2,
+    order.shipToAddress3, order.shipToAddress4,
+    [order.city, order.state, order.postal].filter(Boolean).join(", "),
+    order.country ? String(order.country) : "",
+    order.phone ? "Phone: " + normalizePhone(order.phone) : "",
+    order.email ? "Email: " + order.email : ""
+  ].filter(s => String(s || "").trim() !== "").join("<br>");
+  const billing = [
+    "BI WORLDWIDE INDIA PRIVATE LIMITED",
+    "No 28 Ulsoor Road, Next to Nilgiris",
+    "Bangalore, Karnataka",
+    "Pincode: 560042",
+    "GSTIN: 29AAECB5878L1ZY"
+  ].join("<br>");
+  const gstin = String(state.companyGstinDefault || "").trim();
+  const seller = [
+    "Spillbox Innovation Private Limited",
+    "2/852, Manapakkam-Mugalivakkam Main Road,",
+    "Chennai, Tamil Nadu 600125",
+    "Phone: 89392 97454",
+    "GSTIN: " + gstin
+  ].join("<br>");
+  const desc = String(order.productDescription || "").trim();
+  const code = String(order.productCode || "").trim();
+  const hsn = String(order.hsnCode || "").trim();
+  const unitNoTax = String(order.unitPriceNoTax || "").trim();
+  const qty = String(order.totalQuantity || order.quantity || "").trim();
+  const netAmount = String(order.netAmount || "").trim();
+  const taxRate = String(order.taxRate || "").trim();
+  const taxType = String(order.taxType || "").trim();
+  const taxAmount = String(order.taxAmount || "").trim();
+  const totalAmount = String(order.totalAmount || "").trim();
+  return `
+  <div class="page">
+    <div class="outer">
+      <div class="top-header">
+        <h2>Tax Invoice</h2>
+      </div>
+      <div class="section">
+        <div class="bold">Billing Address:</div>
+        ${billing}
+      </div>
+      <div class="section">
+        <div class="bold">Shipping Address:</div>
+        ${shipLines}
+      </div>
+      <div class="section">
+        <div class="bold">Sold By:</div>
+        ${seller}
+      </div>
+      <div class="section">
+        <div class="info-line">Order Number: ${po} | PO Date: ${poDate}</div>
+        <div class="info-line">Invoice Number: ${invoiceNo} | Invoice Date: ${invoiceDate}</div>
+      </div>
+      <div class="section">
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th><th>Product Code</th><th>HSN</th><th>UnitPrice-NoTax</th><th>Qty</th><th>Net Amount</th><th>Tax Rate</th><th>Tax Type</th><th>Tax Amount</th><th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${desc}</td><td>${code}</td><td>${hsn}</td><td>${unitNoTax}</td><td>${qty}</td><td>${netAmount}</td><td>${taxRate}</td><td>${taxType}</td><td>${taxAmount}</td><td>${totalAmount}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer-note">Auto Generated Invoice, Signature Not Required</div>
+    </div>
+  </div>`;
+}
+
+function printPagesForSelected(mode) {
+  const selected = state.orders.filter(r => r.__selected);
+  if (!selected.length) return;
+  const pages = [];
+  if (mode === "label") {
+    selected.forEach(o => { pages.push(buildLabelHTML(o)); });
+  } else if (mode === "invoice") {
+    selected.forEach(o => { pages.push(buildInvoiceHTML(o)); });
+  } else {
+    selected.forEach(o => { pages.push(buildLabelHTML(o)); pages.push(buildInvoiceHTML(o)); });
+  }
+  const doc = `
+  <!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Print</title>
+      <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
+      <style>
+        @page { size: A4; margin: 0; }
+        @media print { .page { page-break-after: always; } }
+        html, body { margin: 0; padding: 0; }
+        .page { width: 210mm; min-height: 297mm; display: flex; align-items: flex-start; justify-content: center; }
+        .outer { width: 190mm; min-height: 277mm; border: 2px solid black; padding: 15mm; box-sizing: border-box; margin: 10mm auto 0 auto; font-family: Arial, sans-serif; font-size: 14px; }
+        .top-header { margin-bottom: 12px; }
+        .top-header h2 { margin: 0; font-size: 24px; }
+        .section { margin-bottom: 12px; }
+        .info-line { margin-bottom: 6px; }
+        .bold { font-weight: 700; margin-bottom: 6px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid black; padding: 6px; text-align: left; font-weight: 600; font-size: 12px; word-wrap: break-word; }
+        th { background: #f2f2f2; }
+        .barcode { font-family: 'Libre Barcode 39', cursive; font-size: 72px; text-align: left; margin: 10px 0; }
+        .footer-note { margin-top: 12px; text-align: center; font-size: 12px; font-weight: 600; }
+      </style>
+    </head>
+    <body>
+      ${pages.join("\n")}
+      <script>window.addEventListener('load', () => { window.print(); });</script>
+    </body>
+  </html>`;
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.open();
+  w.document.write(doc);
+  w.document.close();
+}
 function computeAutoFetch(order, opts = { assignInvoice: true }) {
   order.poValue = parseFloat(order.unitPrice || 0) || 0;
   order.totalQuantity = parseFloat(order.quantity || 0) || 0;
@@ -779,6 +975,7 @@ async function onReady() {
       saveState();
       renderOrders();
       updateUpdateSelectedButton();
+      updatePrintButtons();
     });
   }
   const clearSelBtn = document.getElementById("clear-selection");
@@ -789,6 +986,7 @@ async function onReady() {
       renderOrders();
       renderPendingOrders();
       updateUpdateSelectedButton();
+      updatePrintButtons();
     });
   }
   const delSelected = document.getElementById("delete-selected");
@@ -834,6 +1032,13 @@ async function onReady() {
       URL.revokeObjectURL(url);
     });
   }
+  const btnLabel = document.getElementById("btn-print-label");
+  const btnInvoice = document.getElementById("btn-print-invoice");
+  const btnBoth = document.getElementById("btn-print-both");
+  if (btnLabel) btnLabel.addEventListener("click", () => printPagesForSelected("label"));
+  if (btnInvoice) btnInvoice.addEventListener("click", () => printPagesForSelected("invoice"));
+  if (btnBoth) btnBoth.addEventListener("click", () => printPagesForSelected("both"));
+  updatePrintButtons();
 
   const ordersFileInput = document.getElementById("orders-file-input");
   const startImportBtn = document.getElementById("btn-start-import");
