@@ -3,6 +3,7 @@ const state = {
   skuHsn: [],
   hsnPercent: [],
   companyGstinDefault: "33ABNCS8962N1ZE",
+  assets: { logo: "", sign: "" },
   view: "orders",
   importPreview: null,
   importMapping: {},
@@ -170,6 +171,7 @@ async function initDBAndLoad() {
       state.hsnPercent = Array.isArray(data.hsnPercent) ? data.hsnPercent : [];
       state.companyGstinDefault = data.companyGstinDefault || state.companyGstinDefault;
       state.lastInvoiceSeq = parseInt(data.lastInvoiceSeq || 0, 10) || 0;
+      state.assets = data.assets || state.assets;
       loaded = true;
     }
   } catch {}
@@ -188,17 +190,25 @@ async function initDBAndLoad() {
     const invSeq = await dbGetMeta("lastInvoiceSeq");
     state.companyGstinDefault = gstin || state.companyGstinDefault;
     state.lastInvoiceSeq = invSeq ? parseInt(invSeq, 10) || 0 : state.lastInvoiceSeq;
+    const logoMeta = await dbGetMeta("assetsLogo");
+    const signMeta = await dbGetMeta("assetsSign");
+    state.assets.logo = logoMeta || state.assets.logo || "";
+    state.assets.sign = signMeta || state.assets.sign || "";
   } catch {
     const orders = localStorage.getItem("ordersData");
     const skuHsn = localStorage.getItem("skuHsnData");
     const hsnPercent = localStorage.getItem("hsnPercentData");
     const gstin = localStorage.getItem("companyGstinDefault");
     const inv = localStorage.getItem("lastInvoiceSeq");
+    const assetsLogo = localStorage.getItem("assetsLogo");
+    const assetsSign = localStorage.getItem("assetsSign");
     state.orders = orders ? JSON.parse(orders) : [];
     state.skuHsn = skuHsn ? JSON.parse(skuHsn) : [];
     state.hsnPercent = hsnPercent ? JSON.parse(hsnPercent) : [];
     state.companyGstinDefault = gstin || state.companyGstinDefault;
     state.lastInvoiceSeq = inv ? parseInt(inv, 10) || 0 : 0;
+    state.assets.logo = assetsLogo || state.assets.logo || "";
+    state.assets.sign = assetsSign || state.assets.sign || "";
   }
 }
 
@@ -209,7 +219,9 @@ async function saveState() {
       dbReplaceStore("skuHsn", state.skuHsn),
       dbReplaceStore("hsnPercent", state.hsnPercent),
       dbSetMeta("companyGstinDefault", state.companyGstinDefault),
-      dbSetMeta("lastInvoiceSeq", String(state.lastInvoiceSeq))
+      dbSetMeta("lastInvoiceSeq", String(state.lastInvoiceSeq)),
+      dbSetMeta("assetsLogo", state.assets.logo || ""),
+      dbSetMeta("assetsSign", state.assets.sign || "")
     ]);
   } else {
     localStorage.setItem("ordersData", JSON.stringify(state.orders));
@@ -217,6 +229,8 @@ async function saveState() {
     localStorage.setItem("hsnPercentData", JSON.stringify(state.hsnPercent));
     localStorage.setItem("companyGstinDefault", state.companyGstinDefault);
     localStorage.setItem("lastInvoiceSeq", String(state.lastInvoiceSeq));
+    localStorage.setItem("assetsLogo", state.assets.logo || "");
+    localStorage.setItem("assetsSign", state.assets.sign || "");
   }
   try {
     const payload = {
@@ -224,7 +238,8 @@ async function saveState() {
       skuHsn: state.skuHsn,
       hsnPercent: state.hsnPercent,
       companyGstinDefault: state.companyGstinDefault,
-      lastInvoiceSeq: state.lastInvoiceSeq
+      lastInvoiceSeq: state.lastInvoiceSeq,
+      assets: state.assets
     };
     await fetch(REMOTE_API_BASE + "/api/state", {
       method: "POST",
@@ -232,6 +247,54 @@ async function saveState() {
       body: JSON.stringify(payload)
     });
   } catch {}
+}
+
+function renderAssets() {
+  const logoInp = document.getElementById("asset-logo-input");
+  const signInp = document.getElementById("asset-sign-input");
+  const logoPrev = document.getElementById("asset-logo-preview");
+  const signPrev = document.getElementById("asset-sign-preview");
+  const saveBtn = document.getElementById("btn-save-assets");
+  if (logoPrev) {
+    logoPrev.src = state.assets.logo || "";
+    logoPrev.style.display = state.assets.logo ? "block" : "none";
+  }
+  if (signPrev) {
+    signPrev.src = state.assets.sign || "";
+    signPrev.style.display = state.assets.sign ? "block" : "none";
+  }
+  function readFileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  if (logoInp) {
+    logoInp.onchange = async () => {
+      const f = logoInp.files && logoInp.files[0];
+      if (!f) return;
+      const url = await readFileToDataUrl(f);
+      state.assets.logo = url;
+      if (logoPrev) { logoPrev.src = url; logoPrev.style.display = "block"; }
+    };
+  }
+  if (signInp) {
+    signInp.onchange = async () => {
+      const f = signInp.files && signInp.files[0];
+      if (!f) return;
+      const url = await readFileToDataUrl(f);
+      state.assets.sign = url;
+      if (signPrev) { signPrev.src = url; signPrev.style.display = "block"; }
+    };
+  }
+  if (saveBtn) {
+    saveBtn.onclick = async () => {
+      await saveState();
+      alert("Assets saved");
+    };
+  }
 }
 
 function $(sel) { return document.querySelector(sel); }
@@ -246,6 +309,7 @@ function switchView(v) {
   if (v === "update-orders") renderPendingOrders();
   if (v === "sku-hsn") renderSkuHsn();
   if (v === "hsn-percent") renderHsnPercent();
+  if (v === "assets") renderAssets();
   if (v === "dashboard") renderDashboard();
   setTimeout(hideLoading, 200);
 }
@@ -716,6 +780,7 @@ function buildLabelHTML(order) {
     <div class="outer">
       <div class="top-header">
         <h2>Shipping Label</h2>
+        ${state.assets.logo ? `<img class="logo" src="${state.assets.logo}" alt="logo">` : ``}
       </div>
       <div class="barcode">*${po}*</div>
       <div class="section">
@@ -748,7 +813,7 @@ function buildLabelHTML(order) {
   </div>`;
 }
 
-function buildInvoiceHTML(order) {
+function buildInvoiceHTML(order, opts = { withSign: false }) {
   const po = String(order.purchaseOrder || "").trim();
   const poDate = String(order.poDate || "").trim();
   const invoiceNo = String(order.invoiceNumber || "").trim();
@@ -791,6 +856,7 @@ function buildInvoiceHTML(order) {
     <div class="outer">
       <div class="top-header">
         <h2>Tax Invoice</h2>
+        ${state.assets.logo ? `<img class="logo" src="${state.assets.logo}" alt="logo">` : ``}
       </div>
       <div class="section">
         <div class="bold">Billing Address:</div>
@@ -822,7 +888,10 @@ function buildInvoiceHTML(order) {
           </tbody>
         </table>
       </div>
-      <div class="footer-note">Auto Generated Invoice, Signature Not Required</div>
+      ${opts.withSign
+        ? `<div class="sign-block"><div class="bold">Authorized Signature</div>${state.assets.sign ? `<img class="sign-img" src="${state.assets.sign}" alt="signature">` : ``}</div>`
+        : `<div class="footer-note">Auto Generated Invoice, Signature Not Required</div>`
+      }
     </div>
   </div>`;
 }
@@ -834,9 +903,11 @@ function printPagesForSelected(mode) {
   if (mode === "label") {
     selected.forEach(o => { pages.push(buildLabelHTML(o)); });
   } else if (mode === "invoice") {
-    selected.forEach(o => { pages.push(buildInvoiceHTML(o)); });
+    const withSign = state.modalContext && state.modalContext.invoiceWithSign ? true : false;
+    selected.forEach(o => { pages.push(buildInvoiceHTML(o, { withSign })); });
   } else {
-    selected.forEach(o => { pages.push(buildLabelHTML(o)); pages.push(buildInvoiceHTML(o)); });
+    const withSign = state.modalContext && state.modalContext.invoiceWithSign ? true : false;
+    selected.forEach(o => { pages.push(buildLabelHTML(o)); pages.push(buildInvoiceHTML(o, { withSign })); });
   }
   const doc = `
   <!doctype html>
@@ -853,6 +924,8 @@ function printPagesForSelected(mode) {
         .outer { width: 190mm; min-height: 277mm; border: 2px solid black; padding: 15mm; box-sizing: border-box; margin: 10mm auto 0 auto; font-family: Arial, sans-serif; font-size: 14px; }
         .top-header { margin-bottom: 12px; }
         .top-header h2 { margin: 0; font-size: 24px; }
+        .top-header .logo { position: absolute; left: 15mm; top: 15mm; height: 24mm; }
+        .outer { position: relative; }
         .section { margin-bottom: 12px; }
         .info-line { margin-bottom: 6px; }
         .bold { font-weight: 700; margin-bottom: 6px; }
@@ -861,6 +934,8 @@ function printPagesForSelected(mode) {
         th { background: #f2f2f2; }
         .barcode { font-family: 'Libre Barcode 39', cursive; font-size: 72px; text-align: left; margin: 10px 0; }
         .footer-note { margin-top: 12px; text-align: center; font-size: 12px; font-weight: 600; }
+        .sign-block { position: absolute; right: 20mm; bottom: 20mm; text-align: right; }
+        .sign-img { height: 20mm; display: block; margin-top: 4px; margin-left: auto; }
       </style>
     </head>
     <body>
@@ -873,6 +948,31 @@ function printPagesForSelected(mode) {
   w.document.open();
   w.document.write(doc);
   w.document.close();
+}
+
+function askInvoiceOptions(callbackForSign) {
+  const container = document.createElement("div");
+  const label1 = document.createElement("p");
+  label1.textContent = "Choose Invoice Option:";
+  const btnWith = document.createElement("button");
+  btnWith.textContent = "With Sign";
+  const btnWithout = document.createElement("button");
+  btnWithout.textContent = "Without Sign";
+  btnWith.style.marginRight = "8px";
+  container.appendChild(label1);
+  container.appendChild(btnWith);
+  container.appendChild(btnWithout);
+  btnWith.onclick = () => {
+    state.modalContext = { invoiceWithSign: true };
+    hideModal();
+    callbackForSign(true);
+  };
+  btnWithout.onclick = () => {
+    state.modalContext = { invoiceWithSign: false };
+    hideModal();
+    callbackForSign(false);
+  };
+  showModal("Invoice Options", container);
 }
 function computeAutoFetch(order, opts = { assignInvoice: true }) {
   order.poValue = parseFloat(order.unitPrice || 0) || 0;
@@ -1036,8 +1136,33 @@ async function onReady() {
   const btnInvoice = document.getElementById("btn-print-invoice");
   const btnBoth = document.getElementById("btn-print-both");
   if (btnLabel) btnLabel.addEventListener("click", () => printPagesForSelected("label"));
-  if (btnInvoice) btnInvoice.addEventListener("click", () => printPagesForSelected("invoice"));
-  if (btnBoth) btnBoth.addEventListener("click", () => printPagesForSelected("both"));
+  if (btnInvoice) btnInvoice.addEventListener("click", () => {
+    askInvoiceOptions(() => printPagesForSelected("invoice"));
+  });
+  if (btnBoth) btnBoth.addEventListener("click", () => {
+    const container = document.createElement("div");
+    const label1 = document.createElement("p");
+    label1.textContent = "Choose Label & Invoice Option:";
+    const btnWith = document.createElement("button");
+    btnWith.textContent = "Label + Signed Invoice";
+    const btnWithout = document.createElement("button");
+    btnWithout.textContent = "Label + Non-Signed Invoice";
+    btnWith.style.marginRight = "8px";
+    container.appendChild(label1);
+    container.appendChild(btnWith);
+    container.appendChild(btnWithout);
+    btnWith.onclick = () => {
+      state.modalContext = { invoiceWithSign: true };
+      hideModal();
+      printPagesForSelected("both");
+    };
+    btnWithout.onclick = () => {
+      state.modalContext = { invoiceWithSign: false };
+      hideModal();
+      printPagesForSelected("both");
+    };
+    showModal("Label & Invoice Options", container);
+  });
   updatePrintButtons();
 
   const ordersFileInput = document.getElementById("orders-file-input");

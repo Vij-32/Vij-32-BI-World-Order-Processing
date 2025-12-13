@@ -17,7 +17,8 @@ def ensure_data():
                 "skuHsn": [],
                 "hsnPercent": [],
                 "companyGstinDefault": "33ABNCS8962N1ZE",
-                "lastInvoiceSeq": 0
+                "lastInvoiceSeq": 0,
+                "assets": {"logo": "", "sign": ""}
             }, f)
 
 class Handler(SimpleHTTPRequestHandler):

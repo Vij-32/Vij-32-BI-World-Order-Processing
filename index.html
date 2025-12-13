@@ -20,6 +20,7 @@
             <li><button class="nav-btn" data-view="update-orders">Update Orders</button></li>
             <li><button class="nav-btn" data-view="sku-hsn">Sku-Hsn</button></li>
             <li><button class="nav-btn" data-view="hsn-percent">Hsn-Percent</button></li>
+            <li><button class="nav-btn" data-view="assets">Assets</button></li>
           </ul>
         </nav>
       </aside>
@@ -85,6 +86,27 @@
               <thead id="orders-thead"></thead>
               <tbody id="orders-tbody"></tbody>
             </table>
+          </div>
+        </section>
+
+        <section id="view-assets" class="view hidden">
+          <div class="view-header">
+            <h2>Assets</h2>
+          </div>
+          <div class="tiles">
+            <div class="tile">
+              <h3>Upload Logo</h3>
+              <input type="file" id="asset-logo-input" accept="image/png, image/jpeg" />
+              <img id="asset-logo-preview" alt="Logo preview" style="max-width:200px; display:block; margin-top:8px;" />
+            </div>
+            <div class="tile">
+              <h3>Upload Signature</h3>
+              <input type="file" id="asset-sign-input" accept="image/png, image/jpeg" />
+              <img id="asset-sign-preview" alt="Signature preview" style="max-width:200px; display:block; margin-top:8px;" />
+            </div>
+          </div>
+          <div>
+            <button id="btn-save-assets">Save Assets</button>
           </div>
         </section>
 
