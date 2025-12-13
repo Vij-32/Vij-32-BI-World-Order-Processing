@@ -16,7 +16,9 @@ const state = {
   modalContext: null
 };
 
-const REMOTE_API_BASE = location.protocol + "//" + location.hostname + ":8002";
+const REMOTE_API_BASE = (location.port === "8002")
+  ? location.origin
+  : (location.protocol + "//" + location.hostname + ":8002");
 
 const ORDERS_COLS = [
   { key: "vendorCode", label: "VendorCode" },
