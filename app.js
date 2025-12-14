@@ -215,6 +215,14 @@ async function initDBAndLoad() {
     const sbKey = await dbGetMeta("supabaseAnonKey");
     state.supabaseCfg.url = sbUrl || state.supabaseCfg.url || "";
     state.supabaseCfg.anonKey = sbKey || state.supabaseCfg.anonKey || "";
+    if (!state.supabaseCfg.url || !state.supabaseCfg.anonKey) {
+      try {
+        const lsUrl = localStorage.getItem("supabaseUrl");
+        const lsKey = localStorage.getItem("supabaseAnonKey");
+        state.supabaseCfg.url = lsUrl || state.supabaseCfg.url || "";
+        state.supabaseCfg.anonKey = lsKey || state.supabaseCfg.anonKey || "";
+      } catch {}
+    }
   } catch {
     const orders = localStorage.getItem("ordersData");
     const skuHsn = localStorage.getItem("skuHsnData");
@@ -253,7 +261,9 @@ async function saveState() {
       dbSetMeta("companyGstinDefault", state.companyGstinDefault),
       dbSetMeta("lastInvoiceSeq", String(state.lastInvoiceSeq)),
       dbSetMeta("assetsLogo", state.assets.logo || ""),
-      dbSetMeta("assetsSign", state.assets.sign || "")
+      dbSetMeta("assetsSign", state.assets.sign || ""),
+      dbSetMeta("supabaseUrl", state.supabaseCfg.url || ""),
+      dbSetMeta("supabaseAnonKey", state.supabaseCfg.anonKey || "")
     ]);
   } else {
     localStorage.setItem("ordersData", JSON.stringify(state.orders));
