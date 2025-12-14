@@ -664,6 +664,7 @@ function switchView(v) {
   if (v === "hsn-percent") renderHsnPercent();
   if (v === "assets") renderAssets();
   if (v === "dashboard") renderDashboard();
+  if (v === "orders") updatePrintButtons();
   setTimeout(hideLoading, 200);
 }
 
@@ -1107,7 +1108,9 @@ function updateUpdateSelectedButton() {
 }
 
 function updatePrintButtons() {
-  const anyOrdersSelected = state.orders.some(r => r.__selected);
+  const anyOrdersSelectedState = state.orders.some(r => r.__selected);
+  const anyOrdersSelectedDom = !!document.querySelector("#orders-tbody input[type='checkbox']:checked");
+  const anyOrdersSelected = anyOrdersSelectedState || anyOrdersSelectedDom;
   const btnLabel = document.getElementById("btn-print-label");
   const btnInvoice = document.getElementById("btn-print-invoice");
   const btnBoth = document.getElementById("btn-print-both");
