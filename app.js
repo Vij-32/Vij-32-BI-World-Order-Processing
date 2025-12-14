@@ -717,9 +717,20 @@ function renderOrders() {
   trh.appendChild(thAct);
   for (const c of ORDERS_COLS) {
     const th = document.createElement("th");
-    th.textContent = c.label;
+    th.style.display = "flex";
+    th.style.alignItems = "center";
+    th.style.gap = "6px";
+    const lab = document.createElement("span");
+    lab.textContent = c.label;
+    const ind = document.createElement("span");
+    ind.style.fontSize = "12px";
+    ind.style.opacity = "0.8";
+    ind.textContent = (state.sortKey === c.key) ? (state.sortDir === "asc" ? "▲" : "▼") : "";
+    th.appendChild(lab);
+    th.appendChild(ind);
     th.style.cursor = "pointer";
     th.addEventListener("click", () => {
+      showLoading();
       const prevKey = state.sortKey;
       const key = c.key;
       if (prevKey === key) {
@@ -728,7 +739,7 @@ function renderOrders() {
         state.sortKey = key;
         state.sortDir = "asc";
       }
-      renderOrders();
+      setTimeout(() => { renderOrders(); hideLoading(); }, 50);
     });
     trh.appendChild(th);
   }
@@ -1277,7 +1288,7 @@ function printPagesForSelected(mode) {
         .outer { width: 190mm; min-height: 277mm; border: 2px solid black; padding: 15mm; box-sizing: border-box; margin: 10mm auto 0 auto; font-family: Arial, sans-serif; font-size: 14px; }
         .top-header { margin-bottom: 12px; }
         .top-header h2 { margin: 0; font-size: 24px; }
-        .top-header .logo { position: absolute; left: 15mm; top: 15mm; height: 24mm; }
+        .top-header .logo { position: absolute; right: 15mm; top: 15mm; height: 24mm; }
         .outer { position: relative; }
         .section { margin-bottom: 12px; }
         .info-line { margin-bottom: 6px; }
