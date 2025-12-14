@@ -717,12 +717,10 @@ function renderOrders() {
   trh.appendChild(thAct);
   for (const c of ORDERS_COLS) {
     const th = document.createElement("th");
-    th.style.display = "flex";
-    th.style.alignItems = "center";
-    th.style.gap = "6px";
     const lab = document.createElement("span");
     lab.textContent = c.label;
     const ind = document.createElement("span");
+    ind.style.marginLeft = "6px";
     ind.style.fontSize = "12px";
     ind.style.opacity = "0.8";
     ind.textContent = (state.sortKey === c.key) ? (state.sortDir === "asc" ? "▲" : "▼") : "";
@@ -761,6 +759,7 @@ function renderOrders() {
       row.__selected = cb.checked;
       saveState();
       updateUpdateSelectedButton();
+      updatePrintButtons();
     });
     tdSel.appendChild(cb);
     tr.appendChild(tdSel);
@@ -781,6 +780,7 @@ function renderOrders() {
     }
     tbody.appendChild(tr);
   });
+  updatePrintButtons();
 }
 
 function getFilteredAndSortedOrders() {
