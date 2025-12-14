@@ -372,12 +372,102 @@ async function supabaseLoadAll() {
     state.lastInvoiceSeq = mp["lastInvoiceSeq"] ? parseInt(mp["lastInvoiceSeq"],10) || 0 : state.lastInvoiceSeq;
     state.assets.logo = mp["assetsLogo"] || state.assets.logo || "";
     state.assets.sign = mp["assetsSign"] || state.assets.sign || "";
-    const o = await c.from("orders").select("data");
+    const o = await c.from("orders").select("*");
     if (o.error) throw o.error;
-    state.orders = (o.data || []).map(r => r.data || {});
-    const s = await c.from("sku_hsn").select("data");
+    state.orders = (o.data || []).map(r => {
+      const out = {};
+      out.vendorCode = r.vendor_code ?? "";
+      out.uniqueId = r.unique_id ?? "";
+      out.purchaseOrder = r.purchase_order ?? "";
+      out.poDate = r.po_date ?? "";
+      out.lineNbr = r.line_nbr ?? "";
+      out.biPartNumber = r.bi_part_number ?? "";
+      out.productCode = r.product_code ?? "";
+      out.productDescription = r.product_description ?? "";
+      out.uom = r.uom ?? "";
+      out.quantity = r.quantity ?? "";
+      out.unitPrice = r.unit_price ?? "";
+      out.shipToName = r.ship_to_name ?? "";
+      out.shipToAddress1 = r.ship_to_address1 ?? "";
+      out.shipToAddress2 = r.ship_to_address2 ?? "";
+      out.shipToAddress3 = r.ship_to_address3 ?? "";
+      out.shipToAddress4 = r.ship_to_address4 ?? "";
+      out.city = r.city ?? "";
+      out.state = r.state ?? "";
+      out.postal = r.postal ?? "";
+      out.country = r.country ?? "";
+      out.phone = r.phone ?? "";
+      out.email = r.email ?? "";
+      out.accountNumber = r.account_number ?? "";
+      out.programNumber = r.program_number ?? "";
+      out.comments = r.comments ?? "";
+      out.orderStatus = r.order_status ?? "";
+      out.biwpo = r.biwpo ?? "";
+      out.dispatchDate = r.dispatch_date ?? "";
+      out.awb = r.awb ?? "";
+      out.courierName = r.courier_name ?? "";
+      out.vendorInvoiceNumber = r.vendor_invoice_number ?? "";
+      out.invoiceDate = r.invoice_date ?? "";
+      out.poValue = r.po_value ?? "";
+      out.totalQuantity = r.total_quantity ?? "";
+      out.totalPoValue = r.total_po_value ?? "";
+      out.courierValue = r.courier_value ?? "";
+      out.totalCourier = r.total_courier ?? "";
+      out.deliveryDate = r.delivery_date ?? "";
+      out.weightKg = r.weight_kg ?? "";
+      out.transportMode = r.transport_mode ?? "";
+      out.lbh = r.lbh ?? "";
+      out.companyGstin = r.company_gstin ?? "";
+      out.hsnCode = r.hsn_code ?? "";
+      out.invoiceNumber = r.invoice_number ?? "";
+      out.unitPriceNoTax = r.unit_price_no_tax ?? "";
+      out.netAmount = r.net_amount ?? "";
+      out.taxRate = r.tax_rate ?? "";
+      out.taxType = r.tax_type ?? "";
+      out.taxPercent = r.tax_percent ?? "";
+      out.taxAmount = r.tax_amount ?? "";
+      out.totalAmount = r.total_amount ?? "";
+      out.mrp = r.mrp ?? "";
+      out.packedDate = r.packed_date ?? "";
+      out.lastUpdated = r.last_updated ?? "";
+      return out;
+    });
+    const s = await c.from("sku_hsn").select("*");
     if (s.error) throw s.error;
-    state.skuHsn = (s.data || []).map(r => r.data || {});
+    state.skuHsn = (s.data || []).map(r => {
+      const out = {};
+      out.productKey = r.product_key ?? "";
+      out.SupplierCode = r.supplier_code ?? "";
+      out.ManufacturerModelNo = r.manufacturer_model_no ?? "";
+      out.HsnCode = r.hsn_code ?? "";
+      out.Brand = r.brand ?? "";
+      out.Category = r.category ?? "";
+      out.ProductName = r.product_name ?? "";
+      out.DescriptionofProduct = r.description_of_product ?? "";
+      out.Category1 = r.category1 ?? "";
+      out.Category2 = r.category2 ?? "";
+      out.Category3 = r.category3 ?? "";
+      out.MRP = r.mrp ?? "";
+      out.PricetoBIinclofTaxes = r.price_to_bi_incl_taxes ?? "";
+      out.CourierFinalPricetoBI = r.courier_final_price_to_bi ?? "";
+      out.Cgst = r.cgst ?? "";
+      out.Sgst = r.sgst ?? "";
+      out.Igst = r.igst ?? "";
+      out.Ugst = r.ugst ?? "";
+      out.Weight = r.weight ?? "";
+      out.FreightAmount1 = r.freight_amount1 ?? "";
+      out.AccountType = r.account_type ?? "";
+      out.ImageURL = r.image_url ?? "";
+      out.ImageURL2 = r.image_url2 ?? "";
+      out.ImageURL3 = r.image_url3 ?? "";
+      out.ImageURL4 = r.image_url4 ?? "";
+      out.CountryOfOrigin = r.country_of_origin ?? "";
+      out.CurrentInventory = r.current_inventory ?? "";
+      out.Status = r.status ?? "";
+      out.CreationDate = r.creation_date ?? "";
+      out.ProductType = r.product_type ?? "";
+      return out;
+    });
     const h = await c.from("hsn_percent").select("*");
     if (h.error) throw h.error;
     state.hsnPercent = h.data || [];
@@ -394,13 +484,144 @@ async function supabaseSaveAll() {
     { key: "assetsLogo", value: state.assets.logo || "" },
     { key: "assetsSign", value: state.assets.sign || "" }
   ];
-  await c.from("meta").upsert(metaRows, { onConflict: "key" });
-  const ordersRows = state.orders.map(r => ({ data: r, dedupe_key: r.dedupeKey || null }));
-  await c.from("orders").upsert(ordersRows, { onConflict: "dedupe_key" });
-  const skuRows = state.skuHsn.map(r => ({ data: r, product_key: String(r.productKey || "").trim().toLowerCase() }));
-  await c.from("sku_hsn").upsert(skuRows, { onConflict: "product_key" });
+  {
+    const res = await c.from("meta").upsert(metaRows, { onConflict: "key" });
+    if (res && res.error) console.error("Supabase upsert meta failed", res.error);
+  }
+  function computeDedupe(o) {
+    const uid = String(o.uniqueId || "").trim();
+    const po = String(o.purchaseOrder || "").trim();
+    const ln = String(o.lineNbr || "").trim();
+    if (uid) return `UID:${uid}`;
+    if (po || ln) return `PO:${po}|LN:${ln}`;
+    const key = [
+      o.productCode,
+      o.shipToName,
+      o.invoiceNumber,
+      o.biPartNumber,
+      o.poDate
+    ].map(v => String(v || "").trim()).join("|");
+    return key ? "AUTO:" + hashStr(key) : null;
+  }
+  function hashStr(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+    return String(h >>> 0);
+  }
+  function num(v) {
+    if (v === null || v === undefined || v === "") return null;
+    const s = String(v).replace(/,/g, "").trim();
+    const n = parseFloat(s);
+    return isFinite(n) ? n : null;
+  }
+  const ordersRows = state.orders.map(o => ({
+    dedupe_key: computeDedupe(o),
+    vendor_code: o.vendorCode ?? null,
+    unique_id: o.uniqueId ?? null,
+    purchase_order: o.purchaseOrder ?? null,
+    po_date: o.poDate ?? null,
+    line_nbr: o.lineNbr ? parseInt(o.lineNbr,10) || null : null,
+    bi_part_number: o.biPartNumber ?? null,
+    product_code: o.productCode ?? null,
+    product_description: o.productDescription ?? null,
+    uom: o.uom ?? null,
+    quantity: num(o.totalQuantity ?? o.quantity),
+    unit_price: num(o.unitPrice),
+    ship_to_name: o.shipToName ?? null,
+    ship_to_address1: o.shipToAddress1 ?? null,
+    ship_to_address2: o.shipToAddress2 ?? null,
+    ship_to_address3: o.shipToAddress3 ?? null,
+    ship_to_address4: o.shipToAddress4 ?? null,
+    city: o.city ?? null,
+    state: o.state ?? null,
+    postal: o.postal ?? null,
+    country: o.country ?? null,
+    phone: o.phone ?? null,
+    email: o.email ?? null,
+    account_number: o.accountNumber ?? null,
+    program_number: o.programNumber ?? null,
+    comments: o.comments ?? null,
+    order_status: o.orderStatus ?? null,
+    biwpo: o.biwpo ?? null,
+    dispatch_date: o.dispatchDate ?? null,
+    awb: o.awb ?? null,
+    courier_name: o.courierName ?? null,
+    vendor_invoice_number: o.vendorInvoiceNumber ?? null,
+    invoice_date: o.invoiceDate ?? null,
+    po_value: num(o.poValue),
+    total_quantity: num(o.totalQuantity),
+    total_po_value: num(o.totalPoValue),
+    courier_value: num(o.courierValue),
+    total_courier: num(o.totalCourier),
+    delivery_date: o.deliveryDate ?? null,
+    weight_kg: num(o.weightKg),
+    transport_mode: o.transportMode ?? null,
+    lbh: o.lbh ?? null,
+    company_gstin: o.companyGstin ?? null,
+    hsn_code: o.hsnCode ?? null,
+    invoice_number: o.invoiceNumber ?? null,
+    unit_price_no_tax: num(o.unitPriceNoTax),
+    net_amount: num(o.netAmount),
+    tax_rate: num(o.taxRate),
+    tax_type: o.taxType ?? null,
+    tax_percent: num(o.taxPercent),
+    tax_amount: num(o.taxAmount),
+    total_amount: num(o.totalAmount),
+    mrp: num(o.mrp),
+    packed_date: o.packedDate ?? null,
+    last_updated: o.lastUpdated ?? null
+  })).filter(r => r.dedupe_key);
+  if (ordersRows.length) {
+    const res = await c.from("orders").upsert(ordersRows, { onConflict: "dedupe_key" });
+    if (res && res.error) console.error("Supabase upsert orders failed", res.error);
+  }
+  function productKeyOf(row) {
+    const mk = String(row.productKey || "").trim().toLowerCase();
+    const mm = String(row.ManufacturerModelNo || "").trim().toLowerCase();
+    const sc = String(row.SupplierCode || "").trim().toLowerCase();
+    return mk || mm || sc || null;
+  }
+  const skuRows = state.skuHsn.map(r => ({
+    product_key: productKeyOf(r),
+    supplier_code: r.SupplierCode ?? null,
+    manufacturer_model_no: r.ManufacturerModelNo ?? null,
+    hsn_code: r.HsnCode ?? null,
+    brand: r.Brand ?? null,
+    category: r.Category ?? null,
+    product_name: r.ProductName ?? null,
+    description_of_product: r.DescriptionofProduct ?? null,
+    category1: r.Category1 ?? null,
+    category2: r.Category2 ?? null,
+    category3: r.Category3 ?? null,
+    mrp: num(r.MRP),
+    price_to_bi_incl_taxes: num(r.PricetoBIinclofTaxes),
+    courier_final_price_to_bi: num(r.CourierFinalPricetoBI),
+    cgst: num(r.Cgst),
+    sgst: num(r.Sgst),
+    igst: num(r.Igst),
+    ugst: num(r.Ugst),
+    weight: num(r.Weight),
+    freight_amount1: num(r.FreightAmount1),
+    account_type: r.AccountType ?? null,
+    image_url: r.ImageURL ?? null,
+    image_url2: r.ImageURL2 ?? null,
+    image_url3: r.ImageURL3 ?? null,
+    image_url4: r.ImageURL4 ?? null,
+    country_of_origin: r.CountryOfOrigin ?? null,
+    current_inventory: num(r.CurrentInventory),
+    status: r.Status ?? null,
+    creation_date: r.CreationDate ?? null,
+    product_type: r.ProductType ?? null
+  })).filter(r => r.product_key);
+  if (skuRows.length) {
+    const res = await c.from("sku_hsn").upsert(skuRows, { onConflict: "product_key" });
+    if (res && res.error) console.error("Supabase upsert sku_hsn failed", res.error);
+  }
   const hsnRows = state.hsnPercent.map(r => ({ hsn_code: String(r["HSN CODE"] || r.hsnCode || "").trim(), percent_value: r["PERCENT VALUE"] || r.percent_value || null }));
-  await c.from("hsn_percent").upsert(hsnRows, { onConflict: "hsn_code" });
+  {
+    const res = await c.from("hsn_percent").upsert(hsnRows, { onConflict: "hsn_code" });
+    if (res && res.error) console.error("Supabase upsert hsn_percent failed", res.error);
+  }
   return true;
 }
 
