@@ -394,15 +394,16 @@ async function supabaseLoadAll() {
     state.lastInvoiceSeq = mp["lastInvoiceSeq"] ? parseInt(mp["lastInvoiceSeq"],10) || 0 : state.lastInvoiceSeq;
     state.assets.logo = mp["assetsLogo"] || state.assets.logo || "";
     state.assets.sign = mp["assetsSign"] || state.assets.sign || "";
-    const o = await c.from("orders").select("*");
-    if (o.error) throw o.error;
-    state.orders = (o.data || []).map(r => {
-      const out = {};
-      out.vendorCode = r.vendor_code ?? "";
-      out.uniqueId = r.unique_id ?? "";
-      out.purchaseOrder = r.purchase_order ?? "";
-      out.poDate = r.po_date ?? "";
-      out.lineNbr = r.line_nbr ?? "";
+  const o = await c.from("orders").select("*");
+  if (o.error) throw o.error;
+  state.orders = (o.data || []).map(r => {
+    const out = {};
+    out.dedupeKey = r.dedupe_key ?? "";
+    out.vendorCode = r.vendor_code ?? "";
+    out.uniqueId = r.unique_id ?? "";
+    out.purchaseOrder = r.purchase_order ?? "";
+    out.poDate = r.po_date ?? "";
+    out.lineNbr = r.line_nbr ?? "";
       out.biPartNumber = r.bi_part_number ?? "";
       out.productCode = r.product_code ?? "";
       out.productDescription = r.product_description ?? "";
@@ -540,7 +541,7 @@ async function supabaseSaveAll() {
     return isFinite(n) ? n : null;
   }
   const ordersRows = state.orders.map(o => ({
-    dedupe_key: computeDedupe(o),
+    dedupe_key: o.dedupeKey ? String(o.dedupeKey) : computeDedupe(o),
     vendor_code: o.vendorCode ?? null,
     unique_id: o.uniqueId ?? null,
     purchase_order: o.purchaseOrder ?? null,
@@ -1144,7 +1145,7 @@ function updatePrintButtons() {
 async function supabaseDeleteOrders(orders) {
   const c = state.supabaseClient;
   if (!c || !orders || !orders.length) return false;
-  const dedupeKeys = orders.map(o => computeDedupeKey(o)).filter(k => !!k);
+  const dedupeKeys = orders.map(o => o.dedupeKey || computeDedupeKey(o)).filter(k => !!k);
   if (!dedupeKeys.length) return false;
   try {
     const res = await c.from("orders").delete().in("dedupe_key", dedupeKeys);
@@ -1709,6 +1710,7 @@ function confirmDelete(rows) {
       await supabaseDeleteOrders(rows);
       renderOrders();
       renderPendingOrders();
+      renderDashboard();
       hideModal();
       setTimeout(hideLoading, 200);
     };
