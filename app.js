@@ -1532,6 +1532,12 @@ async function onReady() {
     showModal("Label & Invoice Options", container);
   });
   updatePrintButtons();
+  document.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t && t.matches && t.matches("#orders-tbody input[type='checkbox']")) {
+      updatePrintButtons();
+    }
+  }, true);
 
   const ordersFileInput = document.getElementById("orders-file-input");
   const startImportBtn = document.getElementById("btn-start-import");
