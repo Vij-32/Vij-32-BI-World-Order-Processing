@@ -19,9 +19,7 @@ const state = {
   modalContext: null
 };
 
-const REMOTE_API_BASE = (location.port === "8002")
-  ? location.origin
-  : (location.protocol + "//" + location.hostname + ":8002");
+const REMOTE_API_BASE = (location.port === "8002") ? location.origin : null;
 
 function applyEnvCfg() {
   try {
@@ -176,17 +174,22 @@ async function dbGetMeta(key) {
 async function initDBAndLoad() {
   let loaded = false;
   try {
-    const resp = await fetch(REMOTE_API_BASE + "/api/state", { method: "GET" });
-    if (resp.ok) {
-      const data = await resp.json();
-      state.orders = Array.isArray(data.orders) ? data.orders : [];
-      state.skuHsn = Array.isArray(data.skuHsn) ? data.skuHsn : [];
-      state.hsnPercent = Array.isArray(data.hsnPercent) ? data.hsnPercent : [];
-      state.companyGstinDefault = data.companyGstinDefault || state.companyGstinDefault;
-      state.lastInvoiceSeq = parseInt(data.lastInvoiceSeq || 0, 10) || 0;
-      state.assets = data.assets || state.assets;
-      if (data.supabaseCfg) state.supabaseCfg = data.supabaseCfg;
-      loaded = true;
+    if (REMOTE_API_BASE) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 900);
+      const resp = await fetch(REMOTE_API_BASE + "/api/state", { method: "GET", signal: ctrl.signal });
+      clearTimeout(timer);
+      if (resp.ok) {
+        const data = await resp.json();
+        state.orders = Array.isArray(data.orders) ? data.orders : [];
+        state.skuHsn = Array.isArray(data.skuHsn) ? data.skuHsn : [];
+        state.hsnPercent = Array.isArray(data.hsnPercent) ? data.hsnPercent : [];
+        state.companyGstinDefault = data.companyGstinDefault || state.companyGstinDefault;
+        state.lastInvoiceSeq = parseInt(data.lastInvoiceSeq || 0, 10) || 0;
+        state.assets = data.assets || state.assets;
+        if (data.supabaseCfg) state.supabaseCfg = data.supabaseCfg;
+        loaded = true;
+      }
     }
   } catch {}
   if (loaded) return;
@@ -273,11 +276,17 @@ async function saveState() {
       assets: state.assets,
       supabaseCfg: state.supabaseCfg
     };
-    await fetch(REMOTE_API_BASE + "/api/state", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    if (REMOTE_API_BASE) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 900);
+      await fetch(REMOTE_API_BASE + "/api/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal
+      });
+      clearTimeout(timer);
+    }
   } catch {}
   if (state.supabaseClient) {
     try { await supabaseSaveAll(); } catch {}
