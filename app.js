@@ -359,6 +359,9 @@ function renderAssets() {
           state.supabaseClient = null;
         }
       }
+      if (state.supabaseClient) {
+        await supabaseLoadAll();
+      }
       await saveState();
       alert("Assets saved");
     };
@@ -489,7 +492,10 @@ async function supabaseLoadAll() {
     });
     const h = await c.from("hsn_percent").select("*");
     if (h.error) throw h.error;
-    state.hsnPercent = h.data || [];
+    state.hsnPercent = (h.data || []).map(r => ({
+      "HSN CODE": r.hsn_code ?? "",
+      "PERCENT VALUE": r.percent_value ?? ""
+    }));
     return true;
   } catch { return false; }
 }
