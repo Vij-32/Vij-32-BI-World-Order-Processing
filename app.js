@@ -1102,6 +1102,28 @@ function normalizePhone(v) {
   return plus ? "+" + digits : digits;
 }
 
+function hashStr(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+  return String(h >>> 0);
+}
+
+function computeDedupeKey(o) {
+  const uid = String(o.uniqueId || "").trim();
+  const po = String(o.purchaseOrder || "").trim();
+  const ln = String(o.lineNbr || "").trim();
+  if (uid) return `UID:${uid}`;
+  if (po || ln) return `PO:${po}|LN:${ln}`;
+  const key = [
+    o.productCode,
+    o.shipToName,
+    o.invoiceNumber,
+    o.biPartNumber,
+    o.poDate
+  ].map(v => String(v || "").trim()).join("|");
+  return key ? "AUTO:" + hashStr(key) : null;
+}
+
 function updateUpdateSelectedButton() {
   const anyOrdersSelected = state.orders.some(r => r.__selectedPending || r.__selected);
   $("#btn-update-selected").disabled = !anyOrdersSelected;
@@ -1117,6 +1139,24 @@ function updatePrintButtons() {
   if (btnLabel) btnLabel.disabled = !anyOrdersSelected;
   if (btnInvoice) btnInvoice.disabled = !anyOrdersSelected;
   if (btnBoth) btnBoth.disabled = !anyOrdersSelected;
+}
+
+async function supabaseDeleteOrders(orders) {
+  const c = state.supabaseClient;
+  if (!c || !orders || !orders.length) return false;
+  const dedupeKeys = orders.map(o => computeDedupeKey(o)).filter(k => !!k);
+  if (!dedupeKeys.length) return false;
+  try {
+    const res = await c.from("orders").delete().in("dedupe_key", dedupeKeys);
+    if (res && res.error) {
+      console.error("Supabase delete orders failed", res.error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Supabase delete orders error", err);
+    return false;
+  }
 }
 
 function buildLabelHTML(order) {
@@ -1666,6 +1706,7 @@ function confirmDelete(rows) {
       const setDel = new Set(rows);
       state.orders = state.orders.filter(r => !setDel.has(r));
       await saveState();
+      await supabaseDeleteOrders(rows);
       renderOrders();
       renderPendingOrders();
       hideModal();
