@@ -16,7 +16,10 @@ const state = {
   sortDir: "asc",
   dashboardFilter: null,
   preventModalClose: false,
-  modalContext: null
+  modalContext: null,
+  filterColumn: null,
+  filterValue: null,
+  filterColumnLabel: null
 };
 
 const REMOTE_API_BASE = (location.port === "8002") ? location.origin : null;
@@ -250,6 +253,76 @@ async function initDBAndLoad() {
       if (loadedSb) return;
     } catch {}
   }
+}
+
+// Filter orders functionality
+const filterModal = $("#filter-modal");
+const btnFilterOrders = $("#btn-filter-orders");
+const filterColumnSelect = $("#filter-column");
+const filterValueInput = $("#filter-value");
+const applyFilterBtn = $("#apply-filter");
+const clearFilterBtn = $("#clear-filter");
+const cancelFilterBtn = $("#cancel-filter");
+const filterModalCloseBtn = filterModal.querySelector(".close-button");
+
+if (btnFilterOrders) {
+  btnFilterOrders.addEventListener("click", () => {
+    filterColumnSelect.innerHTML = ORDERS_COLS.map(col => `<option value="${col.key}">${col.label}</option>`).join("");
+    if (state.filterColumn) {
+      filterColumnSelect.value = state.filterColumn;
+      populateFilterValueDropdown(state.filterColumn);
+      filterValueInput.value = state.filterValue;
+    } else {
+      populateFilterValueDropdown(filterColumnSelect.value);
+    }
+    filterModal.classList.remove("hidden");
+    $("#modal-overlay").classList.remove("hidden");
+  });
+}
+
+filterColumnSelect.addEventListener("change", (e) => {
+  populateFilterValueDropdown(e.target.value);
+});
+
+function populateFilterValueDropdown(columnKey) {
+  const values = new Set();
+  state.orders.forEach(order => {
+    const value = order[columnKey];
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      values.add(String(value).trim());
+    }
+  });
+  filterValueInput.innerHTML = "<option value=\"\">-- Select Value --</option>" + Array.from(values).sort().map(val => `<option value="${val.toLowerCase()}">${val}</option>`).join("");
+}
+
+function hideFilterModal() {
+  filterModal.classList.add("hidden");
+  $("#modal-overlay").classList.add("hidden");
+}
+
+if (filterModalCloseBtn) filterModalCloseBtn.addEventListener("click", hideFilterModal);
+if (cancelFilterBtn) cancelFilterBtn.addEventListener("click", hideFilterModal);
+
+if (applyFilterBtn) {
+  applyFilterBtn.addEventListener("click", () => {
+    state.filterColumn = filterColumnSelect.value;
+    state.filterValue = filterValueInput.value;
+    state.filterColumnLabel = filterColumnSelect.options[filterColumnSelect.selectedIndex].text;
+    renderOrders();
+    hideFilterModal();
+  });
+}
+
+if (clearFilterBtn) {
+  clearFilterBtn.addEventListener("click", () => {
+    state.filterColumn = null;
+    state.filterValue = null;
+    state.filterColumnLabel = null;
+    filterColumnSelect.value = "";
+    filterValueInput.value = "";
+    renderOrders();
+    hideFilterModal();
+  });
 }
 
 async function saveState() {
@@ -705,6 +778,15 @@ function bestMatch(header, labels) {
 
 function renderOrders() {
   const thead = $("#orders-thead");
+  const filterStatusDiv = $("#filter-status");
+  if (state.filterColumn && state.filterValue) {
+    filterStatusDiv.textContent = `Filtered by ${state.filterColumnLabel}: ${state.filterValue}`;
+    filterStatusDiv.classList.add("active");
+  } else {
+    filterStatusDiv.textContent = "";
+    filterStatusDiv.classList.remove("active");
+  }
+
   const tbody = $("#orders-tbody");
   thead.innerHTML = "";
   tbody.innerHTML = "";
@@ -765,6 +847,7 @@ function renderOrders() {
     });
     tdSel.appendChild(cb);
     tr.appendChild(tdSel);
+
     const tdAct = document.createElement("td");
     tdAct.className = "row-actions";
     const delBtn = document.createElement("button");
@@ -781,20 +864,55 @@ function renderOrders() {
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
+
+
   });
   updatePrintButtons();
+
+  const tableWrap = $(".table-wrap");
+  const topScrollbar = $("#top-horizontal-scrollbar");
+  const topScrollbarContent = $("#top-horizontal-scrollbar > div");
+
+  if (tableWrap && topScrollbar && topScrollbarContent) {
+    // Synchronize top scrollbar with table-wrap scroll
+    topScrollbar.onscroll = () => {
+      tableWrap.scrollLeft = topScrollbar.scrollLeft;
+    };
+
+    // Synchronize table-wrap scroll with top scrollbar
+    tableWrap.onscroll = () => {
+      topScrollbar.scrollLeft = tableWrap.scrollLeft;
+    };
+
+    // Adjust the width of the invisible content to match the scrollable width of the table
+    const table = $("#orders-table");
+    if (table) {
+      topScrollbarContent.style.width = table.scrollWidth + "px";
+    }
+  }
 }
 
 function getFilteredAndSortedOrders() {
-  const rows = state.orders.slice();
+  let rows = state.orders.slice();
   const q = (state.searchQuery || "").toLowerCase().trim();
-  const filtered = q ? rows.filter(r => {
-    return ORDERS_COLS.some(c => String(r[c.key] ?? "").toLowerCase().includes(q));
-  }) : rows;
+  
+  if (q) {
+    rows = rows.filter(r => {
+      return ORDERS_COLS.some(c => String(r[c.key] ?? "").toLowerCase().includes(q));
+    });
+  }
+
+  if (state.filterColumn && state.filterValue) {
+    rows = rows.filter(r => {
+      const columnValue = String(r[state.filterColumn] ?? "").toLowerCase();
+      return columnValue.includes(state.filterValue);
+    });
+  }
+
   const key = state.sortKey;
   const dir = state.sortDir === "desc" ? -1 : 1;
-  if (!key) return filtered;
-  filtered.sort((a, b) => {
+  if (!key) return rows;
+  rows.sort((a, b) => {
     const va = a[key] ?? "";
     const vb = b[key] ?? "";
     const na = parseFloat(va);
@@ -813,7 +931,7 @@ function getFilteredAndSortedOrders() {
     }
     return String(va).localeCompare(String(vb)) * dir;
   });
-  return filtered;
+  return rows;
 }
 
 function showOrderDetails(order) {

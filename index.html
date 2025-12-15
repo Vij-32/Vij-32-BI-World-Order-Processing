@@ -78,11 +78,14 @@
               <button id="clear-selection">Clear selection</button>
               <button id="delete-selected" class="danger-btn">Delete selected</button>
               <button id="export-csv" class="icon-btn">Export as CSV</button>
+              <button id="btn-filter-orders" class="icon-btn">Filter</button>
               <button id="btn-print-label">Label</button>
               <button id="btn-print-invoice">Invoice</button>
               <button id="btn-print-both">Label & Invoice</button>
             </div>
+            <div id="filter-status" class="filter-status"></div>
           </div>
+          <div id="top-horizontal-scrollbar" class="top-horizontal-scrollbar"><div></div></div>
           <div class="table-wrap">
             <table id="orders-table">
               <thead id="orders-thead"></thead>
@@ -192,6 +195,32 @@
 
       </main>
     </div>
+
+    <div id="filter-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Filter Orders</h2>
+          <span class="close-button">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="form-field">
+            <label for="filter-column">Select Column:</label>
+            <select id="filter-column"></select>
+          </div>
+          <div class="form-field">
+                  <label for="filter-value">Enter Value:</label>
+                  <select id="filter-value"></select>
+                </div>
+        </div>
+        <div class="modal-footer">
+          <button id="apply-filter">Apply Filter</button>
+          <button id="clear-filter">Clear Filter</button>
+          <button id="cancel-filter">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-overlay" class="modal-overlay hidden"></div>
 
     <div id="loading-overlay" class="loading-overlay hidden">
       <div class="spinner"></div>

@@ -9,7 +9,7 @@
   --danger: #ef4444;
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body { height: 100%; overflow-x: auto; }
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
@@ -59,7 +59,6 @@ body {
 }
 .content {
   padding: 16px;
-  overflow: auto;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -150,13 +149,82 @@ button:disabled {
 }
 .table-wrap {
   width: 100%;
-  overflow: auto;
+  overflow-x: scroll;
+  overflow-y: auto;
+  max-height: 60vh;
+  padding-bottom: 15px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  max-height: 60vh;
+  /* Ensure scrollbars are visible */
+  -ms-overflow-style: scrollbar;  /* IE and Edge */
+  scrollbar-width: auto;  /* Firefox */
+}
+
+/* Always show scrollbars for Webkit browsers */
+body::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+body::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+body::-webkit-scrollbar-thumb {
+  background-color: white;
+  border-radius: 6px;
+  border: 3px solid var(--bg);
+}
+
+.table-wrap::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.table-wrap::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+.table-wrap::-webkit-scrollbar-thumb {
+  background-color: white;
+  border-radius: 6px;
+  border: 3px solid var(--bg);
+}
+
+.top-horizontal-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.top-horizontal-scrollbar::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+.top-horizontal-scrollbar::-webkit-scrollbar-thumb {
+  background-color: white;
+  border-radius: 6px;
+  border: 3px solid var(--bg);
+}
+
+.top-horizontal-scrollbar {
+  width: 100%;
+  overflow-x: scroll;
+  height: 15px; /* Height of the scrollbar */
+  margin-bottom: 5px; /* Space between top scrollbar and table */
+  /* Make scrollbar visible */
+  &::-webkit-scrollbar {
+    height: 10px; /* Make the scrollbar visible */
+    /* display: block; */
+  }
+  -ms-overflow-style: scrollbar;  /* IE and Edge */
+  scrollbar-width: auto;  /* Firefox */
+}
+
+.top-horizontal-scrollbar > div {
+  height: 1px; /* Invisible content to force scrollbar */
 }
 table {
-  width: max(100%, 1400px);
+  width: 100%;
   border-collapse: collapse;
   background: var(--panel);
 }
