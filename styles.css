@@ -155,55 +155,12 @@ button:disabled {
   padding-bottom: 15px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  /* Ensure scrollbars are visible */
+  /* Make scrollbar visible */
+  &::-webkit-scrollbar {
+    display: block;
+  }
   -ms-overflow-style: scrollbar;  /* IE and Edge */
   scrollbar-width: auto;  /* Firefox */
-}
-
-/* Always show scrollbars for Webkit browsers */
-body::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-body::-webkit-scrollbar-track {
-  background: var(--bg);
-}
-
-body::-webkit-scrollbar-thumb {
-  background-color: white;
-  border-radius: 6px;
-  border: 3px solid var(--bg);
-}
-
-.table-wrap::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-.table-wrap::-webkit-scrollbar-track {
-  background: var(--bg);
-}
-
-.table-wrap::-webkit-scrollbar-thumb {
-  background-color: white;
-  border-radius: 6px;
-  border: 3px solid var(--bg);
-}
-
-.top-horizontal-scrollbar::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-.top-horizontal-scrollbar::-webkit-scrollbar-track {
-  background: var(--bg);
-}
-
-.top-horizontal-scrollbar::-webkit-scrollbar-thumb {
-  background-color: white;
-  border-radius: 6px;
-  border: 3px solid var(--bg);
 }
 
 .top-horizontal-scrollbar {
@@ -214,7 +171,7 @@ body::-webkit-scrollbar-thumb {
   /* Make scrollbar visible */
   &::-webkit-scrollbar {
     height: 10px; /* Make the scrollbar visible */
-    /* display: block; */
+    display: block;
   }
   -ms-overflow-style: scrollbar;  /* IE and Edge */
   scrollbar-width: auto;  /* Firefox */
