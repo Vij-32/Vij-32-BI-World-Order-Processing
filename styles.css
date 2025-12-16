@@ -15,7 +15,7 @@ body::-webkit-scrollbar {
   height: 12px;
 }
 body::-webkit-scrollbar-track {
-  background: white;
+  background: var(--bg);
 }
 body::-webkit-scrollbar-thumb {
   background-color: white;
@@ -174,7 +174,7 @@ button:disabled {
     height: 12px;
   }
   &::-webkit-scrollbar-track {
-    background: white;
+    background: var(--bg);
   }
   &::-webkit-scrollbar-thumb {
     background-color: white;
@@ -196,7 +196,7 @@ button:disabled {
     display: block;
   }
   &::-webkit-scrollbar-track {
-    background: white;
+    background: var(--bg);
   }
   &::-webkit-scrollbar-thumb {
     background-color: white;
