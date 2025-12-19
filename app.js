@@ -1598,7 +1598,7 @@ async function onReady() {
   if (toggleAll) {
     toggleAll.addEventListener("change", e => {
       const checked = e.target.checked;
-      state.orders.forEach(r => r.__selected = checked);
+      getFilteredAndSortedOrders().forEach(r => r.__selected = checked);
       saveState();
       renderOrders();
       updateUpdateSelectedButton();
