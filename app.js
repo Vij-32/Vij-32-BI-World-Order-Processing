@@ -588,7 +588,7 @@ async function supabaseSaveAll() {
     product_code: o.productCode ?? null,
     product_description: o.productDescription ?? null,
     uom: o.uom ?? null,
-    quantity: num(o.quantity ?? o.totalQuantity),
+    quantity: num(o.quantity && o.quantity > 0 ? o.quantity : o.totalQuantity),
     unit_price: num(o.unitPrice),
     ship_to_name: o.shipToName ?? null,
     ship_to_address1: o.shipToAddress1 ?? null,
@@ -1232,7 +1232,7 @@ function computeImportPlan(mapping, rows) {
   };
 }
 
-function applyImport(mapping, rows) {
+async function applyImport(mapping, rows) {
   const labelToKey = Object.fromEntries(ORDERS_COLS.map(c => [c.label, c.key]));
   const existingUids = new Set(
     state.orders.map(r => String(r.uniqueId || "").trim()).filter(s => !!s)
@@ -1277,7 +1277,7 @@ function applyImport(mapping, rows) {
     added++;
   }
   state.orders = state.orders.concat(imported);
-  saveState();
+  await saveState();
   return { added, skipped };
 }
 
@@ -1851,7 +1851,7 @@ async function onReady() {
   }
   const modalNext = document.getElementById("modal-next");
   if (modalNext) {
-    modalNext.addEventListener("click", () => {
+    modalNext.addEventListener("click", async () => {
       if (state.modalContext !== "import") return;
       
       const d = new Date();
@@ -1861,7 +1861,7 @@ async function onReady() {
       exportOrdersToCSV(`OrderFile-${dd}-${mmm}-${yyyy}.csv`);
 
       const plan = computeImportPlan(state.importMapping || {}, state.importPreview || []);
-      const res = applyImport(state.importMapping, state.importPreview || []);
+      const res = await applyImport(state.importMapping, state.importPreview || []);
       const s = $("#import-summary");
       if (s) {
         s.textContent = "Imported " + (plan.counts.importable || 0) + " new orders. Skipped Missing UniqueId: " + (plan.counts.missingUniqueId || 0) + ", Invalid Quantity (<=0): " + (plan.counts.invalidQuantity || 0) + ", Duplicates: " + (plan.counts.duplicates || 0) + ".";
