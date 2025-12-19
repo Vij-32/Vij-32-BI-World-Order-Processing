@@ -1,0 +1,283 @@
+!apt install -y libpango1.0-0 libpangocairo-1.0-0 libcairo2
+!pip install pandas jinja2 weasyprint PyPDF2
+
+import pandas as pd
+from jinja2 import Template
+from weasyprint import HTML
+from PyPDF2 import PdfMerger
+import os
+import base64
+import tempfile
+
+# --- Load Logo as Base64 ---
+def load_logo_as_base64(path="logo.png"):
+    with open(path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode("utf-8")
+
+
+# --- HTML Template ---
+def get_invoice_template():
+    return """
+<html>
+  <head>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap');
+
+      @page { size: A4; margin: 0; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        font-size: 18px;
+        font-weight: bold;
+      }
+      .outer {
+        width: 190mm;
+        height: 277mm;
+        border: 2px solid black;
+        padding: 15mm;
+        box-sizing: border-box;
+        margin: 10mm auto 0 auto;
+      }
+      .section { margin-bottom: 20px; }
+      .info-line { margin-bottom: 6px; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        table-layout: fixed;
+      }
+      th, td {
+        border: 1px solid black;
+        padding: 6px;
+        text-align: left;
+        font-weight: bold;
+        font-size: 15px;
+        word-wrap: break-word;
+      }
+      th { background-color: #f2f2f2; }
+
+      /* ✅ Header Layout */
+      .top-header {
+        position: relative;
+        margin-bottom: 20px;
+      }
+      .top-header h2 {
+        margin: 0;
+        font-size: 28px;
+      }
+      .top-header img {
+        position: absolute;
+        right: 0;             /* Logo at far right */
+        top: 0;
+        height: 70px;         /* Fixed logo height */
+      }
+
+      /* ✅ Barcode Styling */
+      .barcode {
+        font-family: 'Libre Barcode 39', cursive;
+        font-size: 90px;      /* Taller barcode */
+        text-align: left;     /* Left aligned */
+        margin: 20px 0;
+      }
+
+      .thankyou {
+        margin-top: 30px;
+        text-align: center;
+        font-size: 16px;
+        font-weight: bold;
+      }
+      .footer-note {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 14px;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="outer">
+      <div class="top-header">
+        <h2>{{ title }}</h2>
+        <img src="data:image/png;base64,{{ logo }}">
+      </div>
+
+      {% if title == "Shipping Label" %}
+      <!-- ✅ SHIPPING LABEL -->
+      <div class="section barcode">*{{ PurchaseOrder }}*</div>
+
+      <div class="section">
+        <div class="bold">Ship To:</div>
+        {{ ShipToName }}<br>
+        {{ ShipToAddress1 }}<br>
+        {{ ShipToAddress2 }}<br>
+        {{ ShipToAddress3 }}<br>
+        {{ ShipToAddress4 }}<br>
+        {{ City }}, {{ State }} - {{ Postal }}<br>
+        {{ Country }}<br>
+        Phone: {{ Phone }}<br>
+        Email: {{ Email }}
+      </div>
+
+      <div class="section">
+        <div class="info-line">Order Number: {{ PurchaseOrder }}</div>
+        <div class="info-line">PO Date: {{ PODate }}</div>
+      </div>
+
+      <div class="section">
+        <div class="bold">From:</div>
+        Spillbox Innovation Private Limited<br>
+        2/852, Manapakkam-Mugalivakkam Main Road,<br>
+        Chennai, Tamil Nadu 600125<br>
+        Phone: 89392 97454<br>
+        GSTIN: {{ Company_GSTIN }}
+      </div>
+
+      <div class="section">
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Product Code</th>
+              <th>HSN</th>
+              <th>Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{{ ProductDescription }}</td>
+              <td>{{ ProductCode }}</td>
+              <td>{{ HSN_Code }}</td>
+              <td>{{ Quantity }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="thankyou">Thank you for your order!</div>
+
+      {% else %}
+      <!-- ✅ TAX INVOICE -->
+      <div class="section">
+        <div class="bold">Billing Address:</div>
+        BI WORLDWIDE INDIA PRIVATE LIMITED<br>
+        No 28 Ulsoor Road, Next to Nilgiris<br>
+        Bangalore, Karnataka<br>
+        Pincode: 560042<br>
+        GSTIN: 29AAECB5878L1ZY
+      </div>
+
+      <div class="section">
+        <div class="bold">Shipping Address:</div>
+        {{ ShipToName }}<br>
+        {{ ShipToAddress1 }}<br>
+        {{ ShipToAddress2 }}<br>
+        {{ ShipToAddress3 }}<br>
+        {{ ShipToAddress4 }}<br>
+        {{ City }}, {{ State }} - {{ Postal }}<br>
+        {{ Country }}<br>
+        Phone: {{ Phone }}<br>
+        Email: {{ Email }}
+      </div>
+
+      <div class="section">
+        <div class="bold">Sold By:</div>
+        Spillbox Innovation Private Limited<br>
+        2/852, Manapakkam-Mugalivakkam Main Road,<br>
+        Chennai, Tamil Nadu 600125<br>
+        Phone: 89392 97454<br>
+        GSTIN: {{ Company_GSTIN }}
+      </div>
+
+      <div class="section">
+        <div class="info-line">Order Number: {{ PurchaseOrder }} | PO Date: {{ PODate }}</div>
+        <div class="info-line">Invoice Number: {{ InvoiceNumber }} | Invoice Date: {{ InvoiceDate }}</div>
+      </div>
+
+      <div class="section">
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Product Code</th>
+              <th>HSN</th>
+              <th>UnitPrice-NoTax</th>
+              <th>Qty</th>
+              <th>Net Amount</th>
+              <th>Tax Rate</th>
+              <th>Tax Type</th>
+              <th>Tax Amount</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{{ ProductDescription }}</td>
+              <td>{{ ProductCode }}</td>
+              <td>{{ HSN_Code }}</td>
+              <td>{{ UnitPrice_NoTax }}</td>
+              <td>{{ Quantity }}</td>
+              <td>{{ NetAmount }}</td>
+              <td>{{ TaxRate }}</td>
+              <td>{{ TaxType }}</td>
+              <td>{{ TaxAmount }}</td>
+              <td>{{ TotalAmount }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer-note">Auto Generated Invoice, Signature Not Required</div>
+
+      {% endif %}
+    </div>
+  </body>
+</html>
+"""
+
+
+# --- Main Function ---
+def main():
+    print("📁 Enter full path to your Orders CSV or Excel file:")
+    file_path = input("> ").strip()
+
+    if not os.path.exists(file_path):
+        print("❌ File not found.")
+        return
+
+    df = pd.read_csv(file_path) if file_path.endswith(".csv") else pd.read_excel(file_path)
+    encoded_logo = load_logo_as_base64("logo.png")
+    template = Template(get_invoice_template())
+    merger = PdfMerger()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        for idx, row in df.iterrows():
+            data = row.fillna("").to_dict()
+            data["HSN_Code"] = data.pop("HSN Code", "")
+            data["Company_GSTIN"] = data.pop("Company GSTIN", "")
+            data["UnitPrice_NoTax"] = data.get("UnitPrice-NoTax", "")
+            data["InvoiceNumber"] = data.get("InvoiceNumber", "")
+            data["logo"] = encoded_logo
+
+            # ✅ Shipping Label
+            data["title"] = "Shipping Label"
+            label_html = template.render(data)
+            label_path = os.path.join(tmp, f"label_{idx}.pdf")
+            HTML(string=label_html).write_pdf(label_path)
+            merger.append(label_path)
+
+            # ✅ Tax Invoice
+            data["title"] = "Tax Invoice"
+            invoice_html = template.render(data)
+            invoice_path = os.path.join(tmp, f"invoice_{idx}.pdf")
+            HTML(string=invoice_html).write_pdf(invoice_path)
+            merger.append(invoice_path)
+
+        output_path = os.path.join(os.path.dirname(file_path), "All_Orders_Labels_and_Invoices.pdf")
+        merger.write(output_path)
+        merger.close()
+        print(f"\n✅ PDF created: {output_path}")
+
+
+if __name__ == "__main__":
+    main()
