@@ -863,9 +863,9 @@ function getFilteredAndSortedOrders() {
     const vb = b[key] ?? "";
     const na = parseFloat(va);
     const nb = parseFloat(vb);
-    const aNum = !isNaN(na) && String(va).trim() !== "";
-    const bNum = !isNaN(nb) && String(vb).trim() !== "";
-    if (aNum && bNum) {
+    const isNumA = !isNaN(na) && isFinite(va) && String(va).trim() !== "";
+    const isNumB = !isNaN(nb) && isFinite(vb) && String(vb).trim() !== "";
+    if (isNumA && isNumB) {
       return (na - nb) * dir;
     }
     const da = Date.parse(va);
