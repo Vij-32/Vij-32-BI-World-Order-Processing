@@ -1543,6 +1543,11 @@ function fiscalYearString() {
 async function onReady() {
   applyEnvCfg();
   await initDBAndLoad();
+  if (!state.supabaseClient) {
+    switchView("assets");
+    const sbStatus = document.getElementById("supabase-status");
+    if (sbStatus) sbStatus.textContent = "Enter Supabase URL and Key to load orders";
+  }
   hideModal();
   document.querySelectorAll(".nav-btn").forEach(b => {
     b.addEventListener("click", () => {
