@@ -35,6 +35,63 @@ function applyEnvCfg() {
     }
   } catch {}
 }
+
+function num(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const s = String(v).replace(/,/g, "").trim();
+  const n = parseFloat(s);
+  return isFinite(n) ? n : null;
+}
+
+function hashStr(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+  return String(h >>> 0);
+}
+
+function computeDedupeKey(o) {
+  const uid = String(o.uniqueId || "").trim();
+  const po = String(o.purchaseOrder || "").trim();
+  const ln = String(o.lineNbr || "").trim();
+  if (uid) return `UID:${uid}`;
+  if (po || ln) return `PO:${po}|LN:${ln}`;
+  const key = [
+    o.productCode,
+    o.shipToName,
+    o.invoiceNumber,
+    o.biPartNumber,
+    o.poDate
+  ].map(v => String(v || "").trim()).join("|");
+  return key ? "AUTO:" + hashStr(key) : null;
+}
+
+function mergeOrders(local, cloud) {
+  const map = new Map();
+  local.forEach(o => {
+    const key = o.dedupeKey || computeDedupeKey(o);
+    if (key) map.set(key, o);
+  });
+  let mergedCount = 0;
+  let addedCount = 0;
+  cloud.forEach(co => {
+    const key = co.dedupeKey || computeDedupeKey(co);
+    if (!key) return;
+    if (map.has(key)) {
+      const lo = map.get(key);
+      const lt = Date.parse(lo.lastUpdated || 0);
+      const ct = Date.parse(co.lastUpdated || 0);
+      if (ct > lt || isNaN(lt)) {
+        map.set(key, co);
+        mergedCount++;
+      }
+    } else {
+      map.set(key, co);
+      addedCount++;
+    }
+  });
+  console.log(`DEBUG: Merge complete. Updated: ${mergedCount}, Added: ${addedCount}`);
+  return Array.from(map.values());
+}
 const ORDERS_COLS = [
   { key: "vendorCode", label: "VendorCode" },
   { key: "uniqueId", label: "UniqueId" },
@@ -176,94 +233,20 @@ async function dbGetMeta(key) {
 
 async function initDBAndLoad() {
   console.log("DEBUG: Starting initDBAndLoad...");
-  console.log("DEBUG: REMOTE_API_BASE =", REMOTE_API_BASE);
-  let loaded = false;
-  try {
-    if (REMOTE_API_BASE) {
-      console.log("DEBUG: Attempting to fetch from remote API:", REMOTE_API_BASE + "/api/state");
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 900);
-      const resp = await fetch(REMOTE_API_BASE + "/api/state", { method: "GET", signal: ctrl.signal });
-      clearTimeout(timer);
-      console.log("DEBUG: Remote API response status:", resp.status);
-      if (resp.ok) {
-        const data = await resp.json();
-        console.log("DEBUG: Remote API data received. Order count:", data.orders ? data.orders.length : 0);
-        state.orders = Array.isArray(data.orders) ? data.orders : [];
-        state.skuHsn = Array.isArray(data.skuHsn) ? data.skuHsn : [];
-        state.hsnPercent = Array.isArray(data.hsnPercent) ? data.hsnPercent : [];
-        state.companyGstinDefault = data.companyGstinDefault || state.companyGstinDefault;
-        state.lastInvoiceSeq = parseInt(data.lastInvoiceSeq || 0, 10) || 0;
-        state.assets = data.assets || state.assets;
-        if (data.supabaseCfg) state.supabaseCfg = data.supabaseCfg;
-        loaded = true;
-      }
-    }
-  } catch (err) {
-    console.warn("DEBUG: Remote API fetch failed:", err);
-  }
-  if (loaded) {
-    console.log("DEBUG: Data loaded from Remote API. Skipping fallback.");
-    return;
-  }
-  console.log("DEBUG: Falling back to local storage (IndexedDB/localStorage)...");
-  try {
-    state.db = await dbOpen();
-    const [orders, skuHsn, hsnPercent] = await Promise.all([
-      dbGetAll("orders"),
-      dbGetAll("skuHsn"),
-      dbGetAll("hsnPercent")
-    ]);
-    state.orders = orders;
-    state.skuHsn = skuHsn;
-    state.hsnPercent = hsnPercent;
-    const gstin = await dbGetMeta("companyGstinDefault");
-    const invSeq = await dbGetMeta("lastInvoiceSeq");
-    state.companyGstinDefault = gstin || state.companyGstinDefault;
-    state.lastInvoiceSeq = invSeq ? parseInt(invSeq, 10) || 0 : state.lastInvoiceSeq;
-    const logoMeta = await dbGetMeta("assetsLogo");
-    const signMeta = await dbGetMeta("assetsSign");
-    state.assets.logo = logoMeta || state.assets.logo || "";
-    state.assets.sign = signMeta || state.assets.sign || "";
-    const sbUrl = await dbGetMeta("supabaseUrl");
-    const sbKey = await dbGetMeta("supabaseAnonKey");
-    state.supabaseCfg.url = sbUrl || state.supabaseCfg.url || "";
-    state.supabaseCfg.anonKey = sbKey || state.supabaseCfg.anonKey || "";
-    if (!state.supabaseCfg.url || !state.supabaseCfg.anonKey) {
-      try {
-        const lsUrl = localStorage.getItem("supabaseUrl");
-        const lsKey = localStorage.getItem("supabaseAnonKey");
-        state.supabaseCfg.url = lsUrl || state.supabaseCfg.url || "";
-        state.supabaseCfg.anonKey = lsKey || state.supabaseCfg.anonKey || "";
-      } catch {}
-    }
-  } catch {
-    const orders = localStorage.getItem("ordersData");
-    const skuHsn = localStorage.getItem("skuHsnData");
-    const hsnPercent = localStorage.getItem("hsnPercentData");
-    const gstin = localStorage.getItem("companyGstinDefault");
-    const inv = localStorage.getItem("lastInvoiceSeq");
-    const assetsLogo = localStorage.getItem("assetsLogo");
-    const assetsSign = localStorage.getItem("assetsSign");
-    const sbUrl = localStorage.getItem("supabaseUrl");
-    const sbKey = localStorage.getItem("supabaseAnonKey");
-    state.orders = orders ? JSON.parse(orders) : [];
-    state.skuHsn = skuHsn ? JSON.parse(skuHsn) : [];
-    state.hsnPercent = hsnPercent ? JSON.parse(hsnPercent) : [];
-    state.companyGstinDefault = gstin || state.companyGstinDefault;
-    state.lastInvoiceSeq = inv ? parseInt(inv, 10) || 0 : 0;
-    state.assets.logo = assetsLogo || state.assets.logo || "";
-    state.assets.sign = assetsSign || state.assets.sign || "";
-    state.supabaseCfg.url = sbUrl || state.supabaseCfg.url || "";
-    state.supabaseCfg.anonKey = sbKey || state.supabaseCfg.anonKey || "";
-  }
+  console.log("DEBUG: Fetch mode = DB-only");
+  applyEnvCfg();
   if (state.supabaseCfg.url && state.supabaseCfg.anonKey && window.supabase) {
     state.supabaseClient = window.supabase.createClient(state.supabaseCfg.url, state.supabaseCfg.anonKey);
+    console.log("DEBUG: Supabase client initialized");
     try {
-      const loadedSb = await supabaseLoadAll();
-      if (loadedSb) return;
-    } catch {}
+      const ok = await supabaseLoadAll();
+      console.log("DEBUG: Supabase load", ok ? "succeeded" : "failed");
+    } catch (err) {
+      console.warn("DEBUG: Supabase load failed:", err);
+    }
+    return;
   }
+  console.warn("DEBUG: Supabase credentials missing; cannot load orders from DB");
 }
 
 // Filter orders functionality
@@ -337,29 +320,7 @@ if (clearFilterBtn) {
 }
 
 async function saveState() {
-  if (state.db) {
-    await Promise.all([
-      dbReplaceStore("orders", state.orders),
-      dbReplaceStore("skuHsn", state.skuHsn),
-      dbReplaceStore("hsnPercent", state.hsnPercent),
-      dbSetMeta("companyGstinDefault", state.companyGstinDefault),
-      dbSetMeta("lastInvoiceSeq", String(state.lastInvoiceSeq)),
-      dbSetMeta("assetsLogo", state.assets.logo || ""),
-      dbSetMeta("assetsSign", state.assets.sign || ""),
-      dbSetMeta("supabaseUrl", state.supabaseCfg.url || ""),
-      dbSetMeta("supabaseAnonKey", state.supabaseCfg.anonKey || "")
-    ]);
-  } else {
-    localStorage.setItem("ordersData", JSON.stringify(state.orders));
-    localStorage.setItem("skuHsnData", JSON.stringify(state.skuHsn));
-    localStorage.setItem("hsnPercentData", JSON.stringify(state.hsnPercent));
-    localStorage.setItem("companyGstinDefault", state.companyGstinDefault);
-    localStorage.setItem("lastInvoiceSeq", String(state.lastInvoiceSeq));
-    localStorage.setItem("assetsLogo", state.assets.logo || "");
-    localStorage.setItem("assetsSign", state.assets.sign || "");
-    localStorage.setItem("supabaseUrl", state.supabaseCfg.url || "");
-    localStorage.setItem("supabaseAnonKey", state.supabaseCfg.anonKey || "");
-  }
+  // DB-only mode: skip local/IndexedDB writes
   try {
     const payload = {
       orders: state.orders,
@@ -598,34 +559,8 @@ async function supabaseSaveAll() {
     const res = await c.from("meta").upsert(metaRows, { onConflict: "key" });
     if (res && res.error) console.error("Supabase upsert meta failed", res.error);
   }
-  function computeDedupe(o) {
-    const uid = String(o.uniqueId || "").trim();
-    const po = String(o.purchaseOrder || "").trim();
-    const ln = String(o.lineNbr || "").trim();
-    if (uid) return `UID:${uid}`;
-    if (po || ln) return `PO:${po}|LN:${ln}`;
-    const key = [
-      o.productCode,
-      o.shipToName,
-      o.invoiceNumber,
-      o.biPartNumber,
-      o.poDate
-    ].map(v => String(v || "").trim()).join("|");
-    return key ? "AUTO:" + hashStr(key) : null;
-  }
-  function hashStr(s) {
-    let h = 5381;
-    for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
-    return String(h >>> 0);
-  }
-  function num(v) {
-    if (v === null || v === undefined || v === "") return null;
-    const s = String(v).replace(/,/g, "").trim();
-    const n = parseFloat(s);
-    return isFinite(n) ? n : null;
-  }
   const ordersRows = state.orders.map(o => ({
-    dedupe_key: o.dedupeKey ? String(o.dedupeKey) : computeDedupe(o),
+    dedupe_key: o.dedupeKey ? String(o.dedupeKey) : computeDedupeKey(o),
     vendor_code: o.vendorCode ?? null,
     unique_id: o.uniqueId ?? null,
     purchase_order: o.purchaseOrder ?? null,
@@ -1240,22 +1175,6 @@ function hashStr(s) {
   return String(h >>> 0);
 }
 
-function computeDedupeKey(o) {
-  const uid = String(o.uniqueId || "").trim();
-  const po = String(o.purchaseOrder || "").trim();
-  const ln = String(o.lineNbr || "").trim();
-  if (uid) return `UID:${uid}`;
-  if (po || ln) return `PO:${po}|LN:${ln}`;
-  const key = [
-    o.productCode,
-    o.shipToName,
-    o.invoiceNumber,
-    o.biPartNumber,
-    o.poDate
-  ].map(v => String(v || "").trim()).join("|");
-  return key ? "AUTO:" + hashStr(key) : null;
-}
-
 function updateUpdateSelectedButton() {
   const anyOrdersSelected = state.orders.some(r => r.__selectedPending || r.__selected);
   $("#btn-update-selected").disabled = !anyOrdersSelected;
@@ -1513,7 +1432,7 @@ function askInvoiceOptions(callbackForSign) {
   };
   showModal("Invoice Options", container);
 }
-function computeAutoFetch(order, opts = { assignInvoice: true }) {
+async function computeAutoFetch(order, opts = { assignInvoice: true }) {
   order.poValue = parseFloat(order.unitPrice || 0) || 0;
   order.totalQuantity = parseFloat(order.quantity || 0) || 0;
   order.totalPoValue = Number(order.poValue) * Number(order.totalQuantity);
@@ -1557,7 +1476,7 @@ function computeAutoFetch(order, opts = { assignInvoice: true }) {
   order.taxAmount = round2(order.netAmount * taxPct);
   order.totalAmount = round2(order.netAmount + order.taxAmount);
   if (opts.assignInvoice && !order.invoiceNumber) {
-    order.invoiceNumber = nextInvoiceNumber();
+    order.invoiceNumber = await nextInvoiceNumber();
   }
   order.vendorInvoiceNumber = order.invoiceNumber;
   return order;
@@ -1567,24 +1486,49 @@ function round2(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 }
 
-function nextInvoiceNumber() {
+async function nextInvoiceNumber() {
   const fy = fiscalYearString();
   const prefix = "SP/BI/" + fy + "/";
-  let maxSeq = 0;
+  if (state.supabaseClient) {
+    try {
+      const { data, error } = await state.supabaseClient.rpc("next_invoice_seq", { fy });
+      if (!error && typeof data === "number" && data > 0) {
+        state.lastInvoiceSeq = data;
+        return prefix + String(data);
+      }
+    } catch {}
+    try {
+      const { data, error } = await state.supabaseClient
+        .from("orders")
+        .select("invoice_number")
+        .ilike("invoice_number", `${prefix}%`);
+      if (!error) {
+        let maxSeq = 0;
+        (data || []).forEach(r => {
+          const inv = String(r.invoice_number || "");
+          if (inv.startsWith(prefix)) {
+            const n = parseInt(inv.slice(prefix.length), 10);
+            if (!isNaN(n)) maxSeq = Math.max(maxSeq, n);
+          }
+        });
+        const next = maxSeq + 1;
+        state.lastInvoiceSeq = next;
+        return prefix + String(next);
+      }
+    } catch {}
+  }
+  let maxSeqLocal = 0;
   state.orders.forEach(o => {
     const inv = String(o.invoiceNumber || o.vendorInvoiceNumber || "");
     if (inv.startsWith(prefix)) {
       const n = parseInt(inv.slice(prefix.length), 10);
-      if (!isNaN(n)) maxSeq = Math.max(maxSeq, n);
+      if (!isNaN(n)) maxSeqLocal = Math.max(maxSeqLocal, n);
     }
   });
-  const metaKey = "lastInvoiceSeq_" + fy;
-  const stored = localStorage.getItem(metaKey);
-  const storedSeq = stored ? parseInt(stored, 10) || 0 : 0;
-  maxSeq = Math.max(maxSeq, storedSeq);
-  const next = maxSeq + 1;
-  localStorage.setItem(metaKey, String(next));
-  return prefix + String(next);
+  const storedSeq = parseInt(state.lastInvoiceSeq || 0, 10) || 0;
+  const nextLocal = Math.max(maxSeqLocal, storedSeq) + 1;
+  state.lastInvoiceSeq = nextLocal;
+  return prefix + String(nextLocal);
 }
 
 function fiscalYearString() {
@@ -1655,7 +1599,13 @@ async function onReady() {
   const exportBtn = document.getElementById("export-csv");
   if (exportBtn) {
     exportBtn.addEventListener("click", () => {
+      const prevKey = state.sortKey;
+      const prevDir = state.sortDir;
+      state.sortKey = "lastUpdated";
+      state.sortDir = "desc";
       const rows = getFilteredAndSortedOrders();
+      state.sortKey = prevKey;
+      state.sortDir = prevDir;
       const header = ORDERS_COLS.map(c => c.label);
       const keys = ORDERS_COLS.map(c => c.key);
       const csv = [header.join(",")].concat(
@@ -2023,9 +1973,9 @@ function buildUpdateDialog(order) {
   autoArea.appendChild(autoGrid);
   const autoBtn = document.createElement("button");
   autoBtn.textContent = "Fetch and Apply";
-  autoBtn.addEventListener("click", () => {
+  autoBtn.addEventListener("click", async () => {
     const tmp = JSON.parse(JSON.stringify(order));
-    computeAutoFetch(tmp, { assignInvoice: false });
+    await computeAutoFetch(tmp, { assignInvoice: false });
     autoFields.forEach(([key]) => {
       if (previewInputs[key]) previewInputs[key].value = tmp[key] ?? "";
     });
@@ -2094,7 +2044,7 @@ function buildUpdateDialog(order) {
     prevBtn.classList.add("hidden");
     confirmBtn.classList.remove("hidden");
     confirmBtn.textContent = "Save";
-    confirmBtn.onclick = () => {
+    confirmBtn.onclick = async () => {
       const tmp = JSON.parse(JSON.stringify(order));
       Object.entries(inputs).forEach(([k,inp]) => {
         if (k.endsWith("Picker")) return;
@@ -2106,7 +2056,7 @@ function buildUpdateDialog(order) {
       tmp.invoiceDate = inputs.invoiceDate.value;
       tmp.dispatchDateIso = dIso || null;
       tmp.invoiceDateIso = iIso || null;
-      computeAutoFetch(tmp, { assignInvoice: false });
+      await computeAutoFetch(tmp, { assignInvoice: false });
       const missing = [];
       autoFields.forEach(([key,label]) => {
         if (key === "invoiceNumber") return;
@@ -2120,10 +2070,10 @@ function buildUpdateDialog(order) {
         return;
       }
       Object.assign(order, tmp);
-      computeAutoFetch(order);
+      await computeAutoFetch(order);
       order.orderStatus = "Shipped";
       order.lastUpdated = new Date().toLocaleString();
-      if (!order.invoiceNumber) order.invoiceNumber = nextInvoiceNumber();
+      if (!order.invoiceNumber) order.invoiceNumber = await nextInvoiceNumber();
       order.vendorInvoiceNumber = order.invoiceNumber;
       Promise.resolve(saveState()).then(() => {
         state.orders.forEach(r => { r.__selectedPending = false; r.__selected = false; });
@@ -2141,14 +2091,14 @@ function buildUpdateDialog(order) {
     autoArea.classList.add("hidden");
     showManualFooter();
   });
-  tabAuto.addEventListener("click", () => {
+  tabAuto.addEventListener("click", async () => {
     if (!validateManual()) return;
     tabAuto.classList.add("active");
     tabManual.classList.remove("active");
     form.classList.add("hidden");
     autoArea.classList.remove("hidden");
     const tmp = JSON.parse(JSON.stringify(order));
-    computeAutoFetch(tmp, { assignInvoice: false });
+    await computeAutoFetch(tmp, { assignInvoice: false });
     autoFields.forEach(([key]) => {
       if (previewInputs[key]) previewInputs[key].value = tmp[key] ?? "";
     });
