@@ -2182,7 +2182,7 @@ function renderDashboard() {
     const orders = state.orders.filter(withinRange);
     totalEl.textContent = String(orders.length);
     shippedEl.textContent = String(orders.filter(o => String(o.orderStatus).toLowerCase() === "shipped").length);
-    pendingEl.textContent = String(orders.filter(o => String(o.orderStatus).toLowerCase() === "pending").length);
+    pendingEl.textContent = String(state.orders.filter(o => String(o.orderStatus).toLowerCase() === "pending" && withinRange(o)).length);
     if (topSkusEl) {
       renderTopSkus(orders);
     }
