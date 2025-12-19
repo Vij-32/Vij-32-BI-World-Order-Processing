@@ -2180,9 +2180,9 @@ function renderDashboard() {
   }
   function updateCounts() {
     const orders = state.orders.filter(withinRange);
-    totalEl.textContent = String(orders.length);
-    shippedEl.textContent = String(orders.filter(o => String(o.orderStatus).toLowerCase() === "shipped").length);
-    pendingEl.textContent = String(state.orders.filter(o => String(o.orderStatus).toLowerCase() === "pending" && withinRange(o)).length);
+    totalEl.textContent = String(state.orders.length);
+    shippedEl.textContent = String(state.orders.filter(o => String(o.orderStatus).toLowerCase() === "shipped").length);
+    pendingEl.textContent = String(state.orders.filter(o => String(o.orderStatus).toLowerCase() === "pending").length);
     if (topSkusEl) {
       renderTopSkus(orders);
     }
