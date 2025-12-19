@@ -481,8 +481,8 @@ async function supabaseLoadAll() {
       out.productCode = r.product_code ?? "";
       out.productDescription = r.product_description ?? "";
       out.uom = r.uom ?? "";
-      out.quantity = r.quantity ?? "";
-      out.unitPrice = r.unit_price ?? "";
+      out.quantity = num(r.quantity) ?? 0;
+      out.unitPrice = num(r.unit_price) ?? 0;
       out.shipToName = r.ship_to_name ?? "";
       out.shipToAddress1 = r.ship_to_address1 ?? "";
       out.shipToAddress2 = r.ship_to_address2 ?? "";
@@ -504,26 +504,26 @@ async function supabaseLoadAll() {
       out.courierName = r.courier_name ?? "";
       out.vendorInvoiceNumber = r.vendor_invoice_number ?? "";
       out.invoiceDate = r.invoice_date ?? "";
-      out.poValue = r.po_value ?? "";
-      out.totalQuantity = r.total_quantity ?? "";
-      out.totalPoValue = r.total_po_value ?? "";
-      out.courierValue = r.courier_value ?? "";
-      out.totalCourier = r.total_courier ?? "";
+      out.poValue = num(r.po_value) ?? 0;
+      out.totalQuantity = num(r.total_quantity) ?? 0;
+      out.totalPoValue = num(r.total_po_value) ?? 0;
+      out.courierValue = num(r.courier_value) ?? 0;
+      out.totalCourier = num(r.total_courier) ?? 0;
       out.deliveryDate = r.delivery_date ?? "";
-      out.weightKg = r.weight_kg ?? "";
+      out.weightKg = num(r.weight_kg) ?? 0;
       out.transportMode = r.transport_mode ?? "";
-      out.lbh = r.lbh ?? "";
+      out.lbh = num(r.lbh) ?? 0;
       out.companyGstin = r.company_gstin ?? "";
       out.hsnCode = r.hsn_code ?? "";
       out.invoiceNumber = r.invoice_number ?? "";
-      out.unitPriceNoTax = r.unit_price_no_tax ?? "";
-      out.netAmount = r.net_amount ?? "";
-      out.taxRate = r.tax_rate ?? "";
+      out.unitPriceNoTax = num(r.unit_price_no_tax) ?? 0;
+      out.netAmount = num(r.net_amount) ?? 0;
+      out.taxRate = num(r.tax_rate) ?? 0;
       out.taxType = r.tax_type ?? "";
-      out.taxPercent = r.tax_percent ?? "";
-      out.taxAmount = r.tax_amount ?? "";
-      out.totalAmount = r.total_amount ?? "";
-      out.mrp = r.mrp ?? "";
+      out.taxPercent = num(r.tax_percent) ?? 0;
+      out.taxAmount = num(r.tax_amount) ?? 0;
+      out.totalAmount = num(r.total_amount) ?? 0;
+      out.mrp = num(r.mrp) ?? 0;
       out.packedDate = r.packed_date ?? "";
       out.lastUpdated = r.last_updated ?? "";
       return out;
@@ -1073,6 +1073,7 @@ function showModal(title, bodyNode) {
 function hideModal() {
   state.preventModalClose = false;
   $("#modal").classList.add("hidden");
+  $("#modal-overlay").classList.add("hidden");
   $("#modal-prev").classList.add("hidden");
   $("#modal-next").classList.add("hidden");
   $("#modal-confirm").classList.add("hidden");
@@ -1312,6 +1313,14 @@ function buildLabelHTML(order) {
       <div class="section">
         <div class="bold">Ship To:</div>
         ${shipLines}
+      </div>
+      <div class="section">
+        <div class="bold">HSN Code:</div>
+        ${hsn}
+      </div>
+      <div class="section">
+        <div class="bold">Quantity:</div>
+        ${qty}
       </div>
       <div class="section">
         <div class="info-line">Order Number: ${po}</div>
