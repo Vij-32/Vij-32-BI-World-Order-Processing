@@ -1120,6 +1120,45 @@ function buildImportWarningUI() {
   summary.id = "import-summary";
   summary.style.color = "#cbd5e1";
   container.appendChild(summary);
+  const plan = computeImportPlan(state.importMapping || {}, state.importPreview || []);
+  const sum = [
+    "Ready to import " + plan.counts.importable + " of " + plan.counts.total + " rows.",
+    "Skipping Missing UniqueId: " + plan.counts.missingUniqueId,
+    "Skipping Invalid Quantity (<=0): " + plan.counts.invalidQuantity,
+    "Skipping Duplicates: " + plan.counts.duplicates
+  ].join(" ");
+  summary.textContent = sum;
+  const table = document.createElement("table");
+  table.id = "import-preview-table";
+  const thead = document.createElement("thead");
+  const thr = document.createElement("tr");
+  ["UniqueId","PurchaseOrder","LineNbr","Quantity","UnitPrice","OrderStatus"].forEach(h => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    thr.appendChild(th);
+  });
+  thead.appendChild(thr);
+  const tbody = document.createElement("tbody");
+  plan.willImport.slice(0, 10).forEach(r => {
+    const tr = document.createElement("tr");
+    const cells = [
+      r.uniqueId ?? "",
+      r.purchaseOrder ?? "",
+      r.lineNbr ?? "",
+      r.quantity ?? "",
+      r.unitPrice ?? "",
+      r.orderStatus ?? ""
+    ];
+    cells.forEach(v => {
+      const td = document.createElement("td");
+      td.textContent = String(v ?? "");
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  container.appendChild(table);
   $("#modal-prev").classList.remove("hidden");
   $("#modal-next").classList.remove("hidden");
   $("#modal-confirm").classList.add("hidden");
@@ -1128,10 +1167,51 @@ function buildImportWarningUI() {
   return container;
 }
 
+function computeImportPlan(mapping, rows) {
+  const labelToKey = Object.fromEntries(ORDERS_COLS.map(c => [c.label, c.key]));
+  const existingUids = new Set(
+    state.orders.map(r => String(r.uniqueId || "").trim()).filter(s => !!s)
+  );
+  const willImport = [];
+  let duplicates = 0;
+  let missingUniqueId = 0;
+  let invalidQuantity = 0;
+  for (const row of rows) {
+    const obj = {};
+    for (const [label, fileHeader] of Object.entries(mapping)) {
+      const key = labelToKey[label];
+      const val = fileHeader ? row[fileHeader] : "";
+      let v = val ?? "";
+      if (key === "phone") v = normalizePhone(v);
+      else if (key === "quantity" || key === "unitPrice" || key === "poValue" || key === "totalQuantity" || key === "totalPoValue" || key === "courierValue" || key === "totalCourier" || key === "weightKg" || key === "unitPriceNoTax" || key === "netAmount" || key === "taxRate" || key === "taxPercent" || key === "taxAmount" || key === "totalAmount" || key === "mrp") v = num(v) ?? 0;
+      else if (key === "lineNbr") v = parseInt(v, 10) || 0;
+      obj[key] = v;
+    }
+    if (!obj.orderStatus) obj.orderStatus = "Pending";
+    const uid = String(obj.uniqueId || "").trim();
+    if (!uid) { missingUniqueId++; continue; }
+    const qty = typeof obj.quantity === "number" ? obj.quantity : num(obj.quantity) ?? 0;
+    if (qty <= 0) { invalidQuantity++; continue; }
+    if (existingUids.has(uid)) { duplicates++; continue; }
+    willImport.push(obj);
+    existingUids.add(uid);
+  }
+  return {
+    willImport,
+    counts: {
+      total: rows.length,
+      importable: willImport.length,
+      duplicates,
+      missingUniqueId,
+      invalidQuantity
+    }
+  };
+}
+
 function applyImport(mapping, rows) {
   const labelToKey = Object.fromEntries(ORDERS_COLS.map(c => [c.label, c.key]));
-  const existingKeys = new Set(
-    state.orders.map(r => r.uniqueId ? `UID:${r.uniqueId}` : `PO:${r.purchaseOrder}|LN:${r.lineNbr}`)
+  const existingUids = new Set(
+    state.orders.map(r => String(r.uniqueId || "").trim()).filter(s => !!s)
   );
   let added = 0;
   let skipped = 0;
@@ -1148,13 +1228,22 @@ function applyImport(mapping, rows) {
       obj[key] = v;
     }
     if (!obj.orderStatus) obj.orderStatus = "Pending";
-    const dedupeKey = obj.uniqueId ? `UID:${obj.uniqueId}` : `PO:${obj.purchaseOrder}|LN:${obj.lineNbr}`;
-    if (existingKeys.has(dedupeKey)) {
+    const uid = String(obj.uniqueId || "").trim();
+    if (!uid) {
+      skipped++;
+      continue;
+    }
+    const qty = typeof obj.quantity === "number" ? obj.quantity : num(obj.quantity) ?? 0;
+    if (qty <= 0) {
+      skipped++;
+      continue;
+    }
+    if (uid && existingUids.has(uid)) {
       skipped++;
       continue;
     }
     imported.push(obj);
-    existingKeys.add(dedupeKey);
+    if (uid) existingUids.add(uid);
     added++;
   }
   state.orders = state.orders.concat(imported);
@@ -1706,8 +1795,6 @@ async function onReady() {
       if (state.modalContext !== "import") return;
       const warnBody = buildImportWarningUI();
       showModal("Review Import", warnBody);
-      const s = $("#import-summary");
-      if (s) s.textContent = "Ready to import " + ((state.importPreview && state.importPreview.length) || 0) + " rows based on current mapping.";
     });
   }
   const modalPrev = document.getElementById("modal-prev");
@@ -1723,9 +1810,12 @@ async function onReady() {
   if (modalNext) {
     modalNext.addEventListener("click", () => {
       if (state.modalContext !== "import") return;
+      const plan = computeImportPlan(state.importMapping || {}, state.importPreview || []);
       const res = applyImport(state.importMapping, state.importPreview || []);
       const s = $("#import-summary");
-      if (s) s.textContent = "Imported " + res.added + " new orders, skipped " + res.skipped + " duplicates.";
+      if (s) {
+        s.textContent = "Imported " + (plan.counts.importable || 0) + " new orders. Skipped Missing UniqueId: " + (plan.counts.missingUniqueId || 0) + ", Invalid Quantity (<=0): " + (plan.counts.invalidQuantity || 0) + ", Duplicates: " + (plan.counts.duplicates || 0) + ".";
+      }
       renderOrders();
       renderPendingOrders();
       
