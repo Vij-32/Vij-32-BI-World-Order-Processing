@@ -588,7 +588,7 @@ async function supabaseSaveAll() {
     product_code: o.productCode ?? null,
     product_description: o.productDescription ?? null,
     uom: o.uom ?? null,
-    quantity: num(o.totalQuantity ?? o.quantity),
+    quantity: num(o.quantity ?? o.totalQuantity),
     unit_price: num(o.unitPrice),
     ship_to_name: o.shipToName ?? null,
     ship_to_address1: o.shipToAddress1 ?? null,
@@ -1209,6 +1209,12 @@ function computeImportPlan(mapping, rows) {
     const uid = String(obj.uniqueId || "").trim();
     if (!uid) { missingUniqueId++; continue; }
     const qty = typeof obj.quantity === "number" ? obj.quantity : num(obj.quantity) ?? 0;
+
+    // Default totalQuantity to quantity if missing, to prevent 0 overwrite
+    if (!obj.totalQuantity && qty > 0) {
+      obj.totalQuantity = qty;
+    }
+
     if (qty <= 0) { invalidQuantity++; continue; }
     if (existingUids.has(uid)) { duplicates++; continue; }
     willImport.push(obj);
@@ -1252,6 +1258,12 @@ function applyImport(mapping, rows) {
       continue;
     }
     const qty = typeof obj.quantity === "number" ? obj.quantity : num(obj.quantity) ?? 0;
+
+    // Default totalQuantity to quantity if missing, to prevent 0 overwrite
+    if (!obj.totalQuantity && qty > 0) {
+      obj.totalQuantity = qty;
+    }
+
     if (qty <= 0) {
       skipped++;
       continue;
