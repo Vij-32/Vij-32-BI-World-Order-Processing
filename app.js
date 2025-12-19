@@ -27,8 +27,21 @@ const REMOTE_API_BASE = (location.port === "8002") ? location.origin : null;
 function applyEnvCfg() {
   try {
     const env = window.__ENV__ || {};
-    const url = String(env.SUPABASE_URL || "").trim();
-    const key = String(env.SUPABASE_ANON_KEY || "").trim();
+    let url = String(env.SUPABASE_URL || "").trim();
+    let key = String(env.SUPABASE_ANON_KEY || "").trim();
+    
+    // Fallback: load from localStorage if not in env
+    if (!url || !key) {
+      try {
+        const local = localStorage.getItem("bi_world_cfg");
+        if (local) {
+          const cfg = JSON.parse(local);
+          if (cfg.url) url = cfg.url;
+          if (cfg.anonKey) key = cfg.anonKey;
+        }
+      } catch {}
+    }
+
     if (url && key) {
       state.supabaseCfg.url = url;
       state.supabaseCfg.anonKey = key;
@@ -320,7 +333,12 @@ if (clearFilterBtn) {
 }
 
 async function saveState() {
-  // DB-only mode: skip local/IndexedDB writes
+  // Always persist config locally so it survives refresh
+  try {
+    localStorage.setItem("bi_world_cfg", JSON.stringify(state.supabaseCfg));
+  } catch {}
+
+  // DB-only mode: skip local/IndexedDB writes for orders/data
   try {
     const payload = {
       orders: state.orders,
