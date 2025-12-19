@@ -1251,6 +1251,39 @@ function applyImport(mapping, rows) {
   return { added, skipped };
 }
 
+function exportOrdersToCSV(filename) {
+  const prevKey = state.sortKey;
+  const prevDir = state.sortDir;
+  state.sortKey = "lastUpdated";
+  state.sortDir = "desc";
+  const rows = getFilteredAndSortedOrders();
+  state.sortKey = prevKey;
+  state.sortDir = prevDir;
+  const header = ORDERS_COLS.map(c => c.label);
+  const keys = ORDERS_COLS.map(c => c.key);
+  const csv = [header.join(",")].concat(
+    rows.map(r => keys.map(k => escapeCsv(r[k])).join(","))
+  ).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsv(s) {
+  if (s === null || s === undefined) return "";
+  const str = String(s);
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
 function normalizePhone(v) {
   const s = String(v || "");
   const plus = s.trim().startsWith("+");
@@ -1693,27 +1726,7 @@ async function onReady() {
   const exportBtn = document.getElementById("export-csv");
   if (exportBtn) {
     exportBtn.addEventListener("click", () => {
-      const prevKey = state.sortKey;
-      const prevDir = state.sortDir;
-      state.sortKey = "lastUpdated";
-      state.sortDir = "desc";
-      const rows = getFilteredAndSortedOrders();
-      state.sortKey = prevKey;
-      state.sortDir = prevDir;
-      const header = ORDERS_COLS.map(c => c.label);
-      const keys = ORDERS_COLS.map(c => c.key);
-      const csv = [header.join(",")].concat(
-        rows.map(r => keys.map(k => escapeCsv(r[k])).join(","))
-      ).join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "orders.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      exportOrdersToCSV("orders.csv");
     });
   }
   const btnLabel = document.getElementById("btn-print-label");
@@ -1810,6 +1823,13 @@ async function onReady() {
   if (modalNext) {
     modalNext.addEventListener("click", () => {
       if (state.modalContext !== "import") return;
+      
+      const d = new Date();
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mmm = d.toLocaleString("default", { month: "short" });
+      const yyyy = d.getFullYear();
+      exportOrdersToCSV(`OrderFile-${dd}-${mmm}-${yyyy}.csv`);
+
       const plan = computeImportPlan(state.importMapping || {}, state.importPreview || []);
       const res = applyImport(state.importMapping, state.importPreview || []);
       const s = $("#import-summary");
