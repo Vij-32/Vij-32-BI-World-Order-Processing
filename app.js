@@ -1728,6 +1728,12 @@ async function onReady() {
       if (s) s.textContent = "Imported " + res.added + " new orders, skipped " + res.skipped + " duplicates.";
       renderOrders();
       renderPendingOrders();
+      
+      const ordersFileInput = document.getElementById("orders-file-input");
+      const startImportBtn = document.getElementById("btn-start-import");
+      if (ordersFileInput) ordersFileInput.value = "";
+      if (startImportBtn) startImportBtn.disabled = true;
+
       setTimeout(hideModal, 1200);
     });
   }
@@ -1744,6 +1750,8 @@ async function onReady() {
       state.skuHsn = appendUniqueRows(state.skuHsn, parsed.rows, row => String(row["ManufacturerModelNo"] || row["SupplierCode"] || ""));
       await saveState();
       renderSkuHsn();
+      skuFileInput.value = "";
+      skuBtn.disabled = true;
     });
   }
 
@@ -1759,6 +1767,8 @@ async function onReady() {
       state.hsnPercent = appendUniqueRows(state.hsnPercent, parsed.rows, row => String(row["HSN CODE"] || ""));
       await saveState();
       renderHsnPercent();
+      hsnFileInput.value = "";
+      hsnBtn.disabled = true;
     });
   }
 
