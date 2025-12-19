@@ -175,15 +175,20 @@ async function dbGetMeta(key) {
 }
 
 async function initDBAndLoad() {
+  console.log("DEBUG: Starting initDBAndLoad...");
+  console.log("DEBUG: REMOTE_API_BASE =", REMOTE_API_BASE);
   let loaded = false;
   try {
     if (REMOTE_API_BASE) {
+      console.log("DEBUG: Attempting to fetch from remote API:", REMOTE_API_BASE + "/api/state");
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 900);
       const resp = await fetch(REMOTE_API_BASE + "/api/state", { method: "GET", signal: ctrl.signal });
       clearTimeout(timer);
+      console.log("DEBUG: Remote API response status:", resp.status);
       if (resp.ok) {
         const data = await resp.json();
+        console.log("DEBUG: Remote API data received. Order count:", data.orders ? data.orders.length : 0);
         state.orders = Array.isArray(data.orders) ? data.orders : [];
         state.skuHsn = Array.isArray(data.skuHsn) ? data.skuHsn : [];
         state.hsnPercent = Array.isArray(data.hsnPercent) ? data.hsnPercent : [];
@@ -194,8 +199,14 @@ async function initDBAndLoad() {
         loaded = true;
       }
     }
-  } catch {}
-  if (loaded) return;
+  } catch (err) {
+    console.warn("DEBUG: Remote API fetch failed:", err);
+  }
+  if (loaded) {
+    console.log("DEBUG: Data loaded from Remote API. Skipping fallback.");
+    return;
+  }
+  console.log("DEBUG: Falling back to local storage (IndexedDB/localStorage)...");
   try {
     state.db = await dbOpen();
     const [orders, skuHsn, hsnPercent] = await Promise.all([

@@ -33,12 +33,17 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        print(f"DEBUG: GET request received for path: {self.path}")
         if self.path == "/api/state":
             ensure_data()
             try:
+                if not os.path.exists(STATE_FILE):
+                    print(f"DEBUG: STATE_FILE not found at {STATE_FILE}")
                 with open(STATE_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
-            except Exception:
+                    print(f"DEBUG: Successfully loaded state.json. Order count: {len(data.get('orders', []))}")
+            except Exception as e:
+                print(f"DEBUG: Error reading state.json: {e}")
                 data = {"orders": [], "skuHsn": [], "hsnPercent": [], "companyGstinDefault": "", "lastInvoiceSeq": 0}
             payload = json.dumps(data).encode("utf-8")
             self.send_response(200)
@@ -47,7 +52,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(payload)
             return
-        return super().do_GET()
+        else:
+            super().do_GET()
 
     def do_POST(self):
         if self.path == "/api/state":
