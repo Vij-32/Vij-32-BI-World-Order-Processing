@@ -1540,10 +1540,10 @@ function printPagesForSelected(mode) {
         .info-line { margin-bottom: 6px; }
         .bold { font-weight: 700; margin-bottom: 6px; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        th, td { border: 1px solid black; padding: 6px; text-align: left; font-weight: 600; font-size: 12px; word-wrap: break-word; }
+        th, td { border: 1px solid black; padding: 6px; text-align: left; font-weight: 600; font-size: 14px; word-wrap: break-word; }
         th { background: #f2f2f2; }
         .barcode { font-family: 'Libre Barcode 39', cursive; font-size: 72px; text-align: left; margin: 10px 0; }
-        .footer-note { margin-top: 12px; text-align: center; font-size: 12px; font-weight: 600; }
+        .footer-note { margin-top: 12px; text-align: center; font-size: 14px; font-weight: 600; }
         .sign-block { position: absolute; right: 20mm; bottom: 20mm; text-align: right; }
         .sign-img { height: 20mm; display: block; margin-top: 4px; margin-left: auto; }
       </style>
