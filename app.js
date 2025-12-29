@@ -1329,7 +1329,8 @@ function hashStr(s) {
 
 function updateUpdateSelectedButton() {
   const anyOrdersSelected = state.orders.some(r => r.__selectedPending || r.__selected);
-  $("#btn-update-selected").disabled = !anyOrdersSelected;
+  const btn = $("#btn-update-selected");
+  if (btn) btn.disabled = !anyOrdersSelected;
 }
 
 function updatePrintButtons() {
@@ -1519,6 +1520,38 @@ function printPagesForSelected(mode) {
     const withSign = state.modalContext && state.modalContext.invoiceWithSign ? true : false;
     selected.forEach(o => { pages.push(buildLabelHTML(o)); pages.push(buildInvoiceHTML(o, { withSign })); });
   }
+  let pageStyle = "";
+  if (mode === "label") {
+    // 4x6 inches = 101.6mm x 152.4mm
+    pageStyle = `
+      @page { size: 101.6mm 152.4mm; margin: 0; }
+      .page { width: 101.6mm; min-height: 152.4mm; display: flex; align-items: flex-start; justify-content: center; }
+      .outer { width: 96mm; min-height: 146mm; border: 2px solid black; padding: 2mm; box-sizing: border-box; margin: 2mm auto; font-family: Arial, sans-serif; font-size: 12px; }
+      .top-header { min-height: 14mm; margin-bottom: 8px; }
+      .top-header .logo { position: absolute; right: 2mm; top: 2mm; height: 12mm; }
+      .top-header h2 { margin: 0; font-size: 20px; }
+      .sign-block { position: absolute; right: 2mm; bottom: 2mm; }
+      .barcode { font-size: 42px; margin: 4px 0; }
+      th, td { font-size: 11px; padding: 4px; }
+      .footer-note { font-size: 11px; }
+      .section { margin-bottom: 8px; }
+      .info-line { margin-bottom: 4px; }
+      .bold { font-weight: 700; margin-bottom: 4px; }
+    `;
+  } else {
+    // Default A4
+    pageStyle = `
+      @page { size: A4; margin: 0; }
+      .page { width: 210mm; min-height: 297mm; display: flex; align-items: flex-start; justify-content: center; }
+      .outer { width: 190mm; min-height: 277mm; border: 2px solid black; padding: 15mm; box-sizing: border-box; margin: 10mm auto 0 auto; font-family: Arial, sans-serif; font-size: 14px; }
+      .top-header .logo { position: absolute; right: 15mm; top: 15mm; height: 24mm; }
+      .sign-block { position: absolute; right: 20mm; bottom: 20mm; text-align: right; }
+      .barcode { font-size: 72px; }
+      th, td { font-size: 16px; }
+      .footer-note { font-size: 16px; }
+    `;
+  }
+
   const doc = `
   <!doctype html>
   <html>
@@ -1527,37 +1560,45 @@ function printPagesForSelected(mode) {
       <title>Print</title>
       <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
       <style>
-        @page { size: A4; margin: 0; }
-        @media print { .page { page-break-after: always; } }
         html, body { margin: 0; padding: 0; }
-        .page { width: 210mm; min-height: 297mm; display: flex; align-items: flex-start; justify-content: center; }
-        .outer { width: 190mm; min-height: 277mm; border: 2px solid black; padding: 15mm; box-sizing: border-box; margin: 10mm auto 0 auto; font-family: Arial, sans-serif; font-size: 14px; }
         .top-header { margin-bottom: 12px; }
         .top-header h2 { margin: 0; font-size: 24px; }
-        .top-header .logo { position: absolute; right: 15mm; top: 15mm; height: 24mm; }
         .outer { position: relative; }
         .section { margin-bottom: 12px; }
         .info-line { margin-bottom: 6px; }
         .bold { font-weight: 700; margin-bottom: 6px; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        th, td { border: 1px solid black; padding: 6px; text-align: left; font-weight: 600; font-size: 16px; word-wrap: break-word; }
+        th, td { border: 1px solid black; padding: 6px; text-align: left; font-weight: 600; word-wrap: break-word; }
         th { background: #f2f2f2; }
-        .barcode { font-family: 'Libre Barcode 39', cursive; font-size: 72px; text-align: left; margin: 10px 0; }
-        .footer-note { margin-top: 12px; text-align: center; font-size: 16px; font-weight: 600; }
-        .sign-block { position: absolute; right: 20mm; bottom: 20mm; text-align: right; }
+        .barcode { font-family: 'Libre Barcode 39', cursive; text-align: left; margin: 10px 0; }
+        .footer-note { margin-top: 12px; text-align: center; font-weight: 600; }
         .sign-img { height: 20mm; display: block; margin-top: 4px; margin-left: auto; }
+        @media print { .page { page-break-after: always; } }
+        ${pageStyle}
       </style>
     </head>
     <body>
       ${pages.join("\n")}
-      <script>window.addEventListener('load', () => { window.print(); });</script>
+      <script>
+        window.addEventListener('load', () => {
+          // Delay to ensure rendering before print
+          setTimeout(() => {
+            window.focus();
+            window.print();
+          }, 1000);
+        });
+      </script>
     </body>
   </html>`;
-  const w = window.open("", "_blank");
-  if (!w) return;
-  w.document.open();
-  w.document.write(doc);
-  w.document.close();
+  const blob = new Blob([doc], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank");
+  if (!w) {
+    alert("Please allow popups to print");
+    return;
+  }
+  // Revoke the URL after a delay to ensure it loads
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function askInvoiceOptions(callbackForSign) {
